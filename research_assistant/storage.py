@@ -1,12 +1,25 @@
 import json
 from pathlib import Path
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 
 from .models import DocumentChunk
 
 
-class IndexStore:
+@runtime_checkable
+class IndexStoreProtocol(Protocol):
+    def exists(self) -> bool:
+        ...
+
+    def save(self, chunks: list[DocumentChunk], embeddings: np.ndarray) -> None:
+        ...
+
+    def load(self) -> tuple[list[DocumentChunk], np.ndarray]:
+        ...
+
+
+class IndexStore(IndexStoreProtocol):
     """Persist chunks and their embeddings as a small local research index."""
 
     def __init__(self, directory: str | Path = "data/index"):

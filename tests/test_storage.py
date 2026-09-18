@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from research_assistant.models import DocumentChunk
-from research_assistant.storage import IndexStore
+from research_assistant.storage import IndexStore, IndexStoreProtocol
 
 
 def test_index_store_round_trip(tmp_path):
@@ -185,3 +185,9 @@ def test_index_store_exists_requires_metadata_file(tmp_path):
     )
 
     assert store.exists() is False
+
+
+def test_index_store_implements_index_store_protocol():
+    store = IndexStore()
+
+    assert isinstance(store, IndexStoreProtocol)

@@ -8,7 +8,7 @@ from .retrieval import (
     SemanticRetriever,
     reciprocal_rank_fusion,
 )
-from .storage import IndexStore
+from .storage import IndexStore, IndexStoreProtocol
 
 
 class ResearchPipeline:
@@ -18,6 +18,7 @@ class ResearchPipeline:
         index_dir: str | Path = "data/index",
         embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
         reranker_model: str = "cross-encoder/ms-marco-MiniLM-L6-v2",
+        store: IndexStoreProtocol | None = None,
     ):
         self.retriever = SemanticRetriever(
             model_name=embedding_model,
@@ -29,7 +30,7 @@ class ResearchPipeline:
             else None
         )
         self.llm = LLMClient()
-        self.store = IndexStore(index_dir)
+        self.store = store or IndexStore(index_dir)
 
     def index(self, directory: str | Path) -> int:
         chunks = load_directory(directory)

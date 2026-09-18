@@ -451,3 +451,23 @@ def test_pipeline_passes_metadata_filter_to_retrievers(monkeypatch):
 
     assert captured["semantic"] == {"topic": "python"}
     assert captured["bm25"] == {"topic": "python"}
+
+
+def test_pipeline_accepts_custom_index_store():
+    class FakeIndexStore:
+        def exists(self):
+            return False
+
+        def save(self, chunks, embeddings):
+            pass
+
+        def load(self):
+            return [], np.empty((0, 2))
+
+    store = FakeIndexStore()
+    pipeline = ResearchPipeline(
+        use_reranker=False,
+        store=store,
+    )
+
+    assert pipeline.store is store
