@@ -29,19 +29,23 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.command == "index":
-        pipeline = ResearchPipeline(index_dir=args.index_dir)
-        count = pipeline.index(args.directory)
-        print(f"Indexed {count} chunks into {args.index_dir}.")
+    try:
+        if args.command == "index":
+            pipeline = ResearchPipeline(index_dir=args.index_dir)
+            count = pipeline.index(args.directory)
+            print(f"Indexed {count} chunks into {args.index_dir}.")
 
-    elif args.command == "ask":
-        pipeline = ResearchPipeline(
-            use_reranker=not args.no_reranker,
-            index_dir=args.index_dir,
-        )
-        count = pipeline.load_index()
-        print(f"Loaded {count} chunks from {args.index_dir}.")
-        print(pipeline.ask(args.question, top_k=args.top_k))
+        elif args.command == "ask":
+            pipeline = ResearchPipeline(
+                use_reranker=not args.no_reranker,
+                index_dir=args.index_dir,
+            )
+            count = pipeline.load_index()
+            print(f"Loaded {count} chunks from {args.index_dir}.")
+            print(pipeline.ask(args.question, top_k=args.top_k))
+
+    except (ValueError, FileNotFoundError) as exc:
+        parser.exit(1, f"Error: {exc}\n")
 
 
 if __name__ == "__main__":
