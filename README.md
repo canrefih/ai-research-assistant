@@ -31,7 +31,10 @@ This keeps the core small while leaving clear extension points for hybrid retrie
     Persistent local index
         │
         ▼
-    Dense retrieval → candidate chunks
+    Dense + BM25 retrieval
+        │
+        ▼
+    Reciprocal rank fusion
         │
         ▼
     Optional CrossEncoder reranking
@@ -50,6 +53,7 @@ This keeps the core small while leaving clear extension points for hybrid retrie
 - Markdown and plain-text ingestion
 - Overlapping chunking with source metadata
 - Dense semantic retrieval
+- Hybrid dense + BM25 retrieval with reciprocal rank fusion
 - Optional CrossEncoder reranking
 - Persistent local NumPy-based index
 - OpenAI-compatible LLM endpoint
@@ -192,7 +196,6 @@ This is an early-stage research/RAG project, not a production platform.
 
 - Only .md and .txt files are ingested.
 - The index is a local NumPy-based store.
-- Retrieval is dense-only; BM25/hybrid retrieval is not implemented yet.
 - Citations are source labels supplied to the LLM, not independently verified claims.
 - There is no web search or crawling layer.
 - There is no retrieval/answer evaluation harness yet.
@@ -203,7 +206,7 @@ These limitations are intentional extension points.
 ## Roadmap
 
 ### Retrieval
-- [ ] Hybrid BM25 + dense retrieval
+- [x] Hybrid BM25 + dense retrieval
 - [ ] Metadata filtering
 - [ ] Document deduplication
 - [ ] Configurable embedding/reranker models
