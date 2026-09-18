@@ -200,9 +200,24 @@ class SemanticRetriever:
         if top_k < 1:
             raise ValueError("top_k must be at least 1")
 
-        q = self.model.encode(
-            [query], normalize_embeddings=True, convert_to_numpy=True
-        )[0]
+        query_embeddings = self.model.encode(
+            [query],
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+        )
+
+        if query_embeddings.ndim != 2 or query_embeddings.shape[0] != 1:
+            raise ValueError(
+                "query embedding must contain exactly one vector"
+            )
+
+        q = query_embeddings[0]
+
+        if q.ndim != 1:
+            raise ValueError(
+                "query embedding must be a 1-dimensional vector"
+            )
+
         scores = self.embeddings @ q
         indices = np.argsort(scores)[::-1][:top_k]
         return [SearchResult(self.chunks[i], float(scores[i])) for i in indices]

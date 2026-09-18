@@ -168,3 +168,50 @@ def test_semantic_retriever_fit_rejects_non_2d_embeddings(monkeypatch):
         match="embeddings must be a 2-dimensional array",
     ):
         retriever.fit(chunks)
+
+
+def test_semantic_retriever_search_rejects_invalid_query_embedding(
+    monkeypatch,
+):
+    class InvalidQueryEmbeddingModel:
+        def encode(
+            self,
+            texts,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+        ):
+            if len(texts) == 1:
+                return np.array([1.0, 0.0], dtype=np.float32)
+
+            return np.array(
+                [[1.0, 0.0], [0.0, 1.0]],
+                dtype=np.float32,
+            )
+
+    monkeypatch.setattr(
+        "research_assistant.retrieval.SentenceTransformer",
+        lambda *args, **kwargs: InvalidQueryEmbeddingModel(),
+    )
+
+    retriever = SemanticRetriever()
+
+    chunks = [
+        DocumentChunk(
+            "python:0",
+            "python.md",
+            "Python programming",
+        ),
+        DocumentChunk(
+            "database:0",
+            "database.md",
+            "Database systems",
+        ),
+    ]
+
+    retriever.fit(chunks)
+
+    with pytest.raises(
+        ValueError,
+        match="query embedding must contain exactly one vector",
+    ):
+        retriever.search("Python")
