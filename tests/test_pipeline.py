@@ -154,3 +154,44 @@ def test_pipeline_rejects_empty_question(monkeypatch, tmp_path):
         match="question must not be empty",
     ):
         pipeline.ask("   ")
+
+
+def test_pipeline_rejects_invalid_top_k(monkeypatch, tmp_path):
+    class FakeSemanticRetriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeBM25Retriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeLLM:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(
+        "research_assistant.pipeline.SemanticRetriever",
+        FakeSemanticRetriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.BM25Retriever",
+        FakeBM25Retriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.LLMClient",
+        FakeLLM,
+    )
+
+    pipeline = ResearchPipeline(
+        use_reranker=False,
+        index_dir=tmp_path,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="top_k must be at least 1",
+    ):
+        pipeline.ask(
+            "Python",
+            top_k=0,
+        )
