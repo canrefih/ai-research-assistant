@@ -4,4 +4,4 @@ __pycache__/
 .pytest_cache/
 .env
 .DS_Store
-data/index.json
+data/index/
