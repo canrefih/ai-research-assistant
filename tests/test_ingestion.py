@@ -38,3 +38,55 @@ def test_load_directory_adds_txt_file_metadata(tmp_path):
         "source": "notes.txt",
         "file_type": "txt",
     }
+
+
+def test_load_directory_deduplicates_identical_files(tmp_path):
+    first = tmp_path / "first.md"
+    second = tmp_path / "second.md"
+
+    content = "# Python\n\nPython is a programming language."
+
+    first.write_text(content, encoding="utf-8")
+    second.write_text(content, encoding="utf-8")
+
+    chunks = load_directory(tmp_path)
+
+    assert len(chunks) == 1
+
+
+def test_load_directory_keeps_different_files(tmp_path):
+    first = tmp_path / "first.md"
+    second = tmp_path / "second.md"
+
+    first.write_text(
+        "# Python\n\nPython is a programming language.",
+        encoding="utf-8",
+    )
+    second.write_text(
+        "# Java\n\nJava is a programming language.",
+        encoding="utf-8",
+    )
+
+    chunks = load_directory(tmp_path)
+
+    assert len(chunks) == 2
+
+
+def test_load_directory_deduplicates_same_content_with_different_metadata(
+    tmp_path,
+):
+    first = tmp_path / "first.md"
+    second = tmp_path / "second.txt"
+
+    content = "Python is a programming language."
+
+    first.write_text(content, encoding="utf-8")
+    second.write_text(content, encoding="utf-8")
+
+    chunks = load_directory(tmp_path)
+
+    assert len(chunks) == 1
+    assert chunks[0].metadata == {
+        "source": "first.md",
+        "file_type": "md",
+    }
