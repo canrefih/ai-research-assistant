@@ -80,3 +80,53 @@ def test_bm25_rejects_search_before_fit():
             "Python",
             top_k=1,
         )
+
+
+def test_bm25_handles_punctuation():
+    chunks = [
+        DocumentChunk(
+            chunk_id="python:0",
+            source="python.md",
+            text="Python, is widely used for machine learning.",
+        ),
+        DocumentChunk(
+            chunk_id="database:0",
+            source="database.md",
+            text="PostgreSQL is a relational database system.",
+        ),
+    ]
+
+    retriever = BM25Retriever()
+    retriever.fit(chunks)
+
+    results = retriever.search(
+        "Python",
+        top_k=1,
+    )
+
+    assert results[0].chunk.source == "python.md"
+
+
+def test_bm25_normalizes_query_punctuation():
+    chunks = [
+        DocumentChunk(
+            chunk_id="python:0",
+            source="python.md",
+            text="Python is widely used for machine learning.",
+        ),
+        DocumentChunk(
+            chunk_id="database:0",
+            source="database.md",
+            text="PostgreSQL is a relational database system.",
+        ),
+    ]
+
+    retriever = BM25Retriever()
+    retriever.fit(chunks)
+
+    results = retriever.search(
+        "Python, programming!",
+        top_k=1,
+    )
+
+    assert results[0].chunk.source == "python.md"

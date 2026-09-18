@@ -1,4 +1,5 @@
 import numpy as np
+import re
 from sentence_transformers import CrossEncoder, SentenceTransformer
 
 from .models import DocumentChunk, SearchResult
@@ -155,7 +156,7 @@ class BM25Retriever:
 
     @staticmethod
     def _tokenize(text: str) -> list[str]:
-        return text.lower().split()
+        return re.findall(r"\b\w+\b", text.lower())
 
 
 class SemanticRetriever:
