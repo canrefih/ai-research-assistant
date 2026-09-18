@@ -147,3 +147,41 @@ def test_ask_handles_runtime_error(monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert captured.err.strip() == "Error: Retriever is not fitted"
+
+
+def test_ask_prints_loaded_count_and_answer(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "research-assistant",
+            "ask",
+            "What is RAG?",
+        ],
+    )
+
+    class SuccessfulPipeline:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def load_index(self):
+            return 2
+
+        def ask(self, question, top_k=8):
+            assert question == "What is RAG?"
+            assert top_k == 8
+            return "fake answer"
+
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        SuccessfulPipeline,
+    )
+
+    main()
+
+    captured = capsys.readouterr()
+
+    assert captured.out == (
+        "Loaded 2 chunks from data/index.\n"
+        "fake answer\n"
+    )
+    assert captured.err == ""
