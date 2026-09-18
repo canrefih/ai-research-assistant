@@ -1,6 +1,8 @@
 from research_assistant.models import DocumentChunk, SearchResult
 from research_assistant.pipeline import ResearchPipeline
 
+import pytest
+
 
 def test_pipeline_uses_hybrid_retrieval(monkeypatch, tmp_path):
     chunks = [
@@ -114,3 +116,41 @@ def test_pipeline_uses_hybrid_retrieval(monkeypatch, tmp_path):
 
     assert reranker_top_k == [6]
     assert "python.md" in answer
+
+
+def test_pipeline_rejects_empty_question(monkeypatch, tmp_path):
+    class FakeSemanticRetriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeBM25Retriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeLLM:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(
+        "research_assistant.pipeline.SemanticRetriever",
+        FakeSemanticRetriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.BM25Retriever",
+        FakeBM25Retriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.LLMClient",
+        FakeLLM,
+    )
+
+    pipeline = ResearchPipeline(
+        use_reranker=False,
+        index_dir=tmp_path,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="question must not be empty",
+    ):
+        pipeline.ask("   ")
