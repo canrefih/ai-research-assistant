@@ -63,7 +63,7 @@ class ResearchPipeline:
             results = self.reranker.rerank(
                 question,
                 results,
-                top_k=min(5, len(results)),
+                top_k=min(top_k, len(results)),
             )
 
         evidence = "\n\n".join(
