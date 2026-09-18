@@ -2,7 +2,12 @@ from pathlib import Path
 
 from .ingestion import load_directory
 from .llm import LLMClient
-from .retrieval import Reranker, SemanticRetriever
+from .retrieval import (
+    BM25Retriever,
+    Reranker,
+    SemanticRetriever,
+    reciprocal_rank_fusion,
+)
 from .storage import IndexStore
 
 
@@ -13,6 +18,7 @@ class ResearchPipeline:
         index_dir: str | Path = "data/index",
     ):
         self.retriever = SemanticRetriever()
+        self.bm25_retriever = BM25Retriever()
         self.reranker = Reranker() if use_reranker else None
         self.llm = LLMClient()
         self.store = IndexStore(index_dir)
@@ -22,12 +28,14 @@ class ResearchPipeline:
         if not chunks:
             raise ValueError(f"No .md or .txt documents found in {directory}")
         self.retriever.fit(chunks)
+        self.bm25_retriever.fit(chunks)
         self.store.save(chunks, self.retriever.embeddings)
         return len(chunks)
 
     def load_index(self) -> int:
         chunks, embeddings = self.store.load()
         self.retriever.load(chunks, embeddings)
+        self.bm25_retriever.fit(chunks)
         return len(chunks)
 
     def ask(self, question: str, top_k: int = 8) -> str:
@@ -36,10 +44,26 @@ class ResearchPipeline:
         if top_k < 1:
             raise ValueError("top_k must be at least 1")
 
-        results = self.retriever.search(question, top_k=top_k)
+        dense_results = self.retriever.search(
+            question,
+            top_k=top_k,
+        )
+
+        bm25_results = self.bm25_retriever.search(
+            question,
+            top_k=top_k,
+        )
+
+        results = reciprocal_rank_fusion(
+            [dense_results, bm25_results],
+            top_k=top_k,
+        )
+
         if self.reranker:
             results = self.reranker.rerank(
-                question, results, top_k=min(5, len(results))
+                question,
+                results,
+                top_k=min(5, len(results)),
             )
 
         evidence = "\n\n".join(
