@@ -35,7 +35,10 @@ class IndexStore:
             )
         raw = json.loads(self.metadata_path.read_text(encoding="utf-8"))
         chunks = [DocumentChunk(**item) for item in raw]
-        embeddings = np.load(self.embeddings_path)
+        embeddings = np.load(
+            self.embeddings_path,
+            allow_pickle=False,
+        )
         if len(chunks) != len(embeddings):
             raise ValueError("Index metadata and embeddings are out of sync")
         return chunks, embeddings
