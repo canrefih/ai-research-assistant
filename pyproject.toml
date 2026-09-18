@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ai-research-assistant"
 version = "0.1.0"
-description = "Citation-aware research assistant with semantic retrieval and optional reranking."
+description = "A citation-aware research assistant with semantic retrieval and optional reranking."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

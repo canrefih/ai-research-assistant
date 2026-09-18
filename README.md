@@ -1,54 +1,62 @@
 # AI Research Assistant
 
-An end-to-end research assistant that retrieves relevant evidence from a local document collection, optionally reranks candidates, and produces a citation-aware answer through an OpenAI-compatible chat endpoint.
+An end-to-end research assistant that ingests documents, retrieves relevant evidence, optionally re-ranks candidates, and produces a citation-aware answer through an OpenAI-compatible chat endpoint.
 
 ## Architecture
 
+```text
+Query
+  │
+  ├──► Dense retrieval (Sentence Transformers)
+  │
+  ├──► Optional cross-encoder re-ranking
+  │
+  └──► Evidence pack
+          │
+          ▼
+   LLM answer synthesis
+          │
+          ▼
+  Answer + source citations
 ```
-Question
-   │
-   ├──► Dense semantic retrieval
-   │
-   ├──► Optional CrossEncoder reranking
-   │
-   └──► Evidence pack
-            │
-            ▼
-       LLM synthesis
-            │
-            ▼
-      Answer + citations
-```
+
+The retrieval/re-ranking design follows the established two-stage pattern: a fast bi-encoder retrieves candidates and a slower cross-encoder improves their ordering.
 
 ## Features
 
-- Markdown and text ingestion
-- Overlapping document chunking
-- Dense semantic retrieval with Sentence Transformers
-- Optional CrossEncoder reranking
-- Source-aware evidence context
+- Clean Python package structure
+- Markdown/text document ingestion
+- Chunking with source metadata
+- Dense semantic retrieval
+- Optional CrossEncoder re-ranking
+- Citation-ready evidence context
 - OpenAI-compatible LLM endpoint
 - CLI interface
 - Unit tests
-- Environment-based configuration
-- No credentials committed to the repository
+- `.env.example`
+- No API keys committed to the repository
 
 ## Quickstart
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-
 pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-The sample corpus is included in `data/sample`.
+Add your model endpoint/key to `.env` if you want generated answers.
 
-Index and query it:
+Index sample documents:
 
 ```bash
-research-assistant ask "Why is retrieve and rerank useful?"
+research-assistant index data/sample
+```
+
+Ask a question:
+
+```bash
+research-assistant ask "What are the main advantages of retrieve-and-rerank?"
 ```
 
 Run tests:
@@ -57,21 +65,13 @@ Run tests:
 pytest
 ```
 
-## Retrieval strategy
+## Project status
 
-The first stage uses a bi-encoder to efficiently retrieve a candidate set. The optional second stage uses a CrossEncoder to score query-document pairs more precisely. This two-stage retrieve-and-rerank pattern gives a practical accuracy/latency trade-off.
+Day 01 portfolio project — intentionally designed as a foundation that can be extended with web crawling, hybrid BM25+dense retrieval, evaluation datasets, observability, and a web UI.
 
-## Roadmap
+## Why retrieve + rerank?
 
-- [ ] Persistent vector index
-- [ ] Hybrid BM25 + dense retrieval
-- [ ] Retrieval evaluation with Recall@k, MRR and NDCG
-- [ ] Web/document ingestion
-- [ ] Streaming answers
-- [ ] FastAPI service
-- [ ] Docker image
-- [ ] CI pipeline
-- [ ] Web UI
+Semantic embeddings are efficient for finding a broad candidate set, while a cross-encoder can score query-document pairs more precisely. Using the two stages together gives a practical accuracy/latency trade-off.
 
 ## License
 

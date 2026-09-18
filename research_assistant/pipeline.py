@@ -1,6 +1,6 @@
-from .llm import LLMClient
 from .ingestion import load_directory
-from .retrieval import Reranker, SemanticRetriever
+from .llm import LLMClient
+from .retrieval import SemanticRetriever, Reranker
 
 class ResearchPipeline:
     def __init__(self, use_reranker: bool = True):
@@ -15,17 +15,11 @@ class ResearchPipeline:
 
     def ask(self, question: str, top_k: int = 8) -> str:
         results = self.retriever.search(question, top_k=top_k)
-
         if self.reranker:
-            results = self.reranker.rerank(
-                question,
-                results,
-                top_k=min(5, len(results)),
-            )
+            results = self.reranker.rerank(question, results, top_k=min(5, len(results)))
 
         evidence = "\n\n".join(
-            f"[{i}] Source: {result.chunk.source}\n{result.chunk.text}"
-            for i, result in enumerate(results, 1)
+            f"[{i}] Source: {r.chunk.source}\n{r.chunk.text}"
+            for i, r in enumerate(results, 1)
         )
-
         return self.llm.answer(question, evidence)
