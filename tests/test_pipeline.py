@@ -195,3 +195,130 @@ def test_pipeline_rejects_invalid_top_k(monkeypatch, tmp_path):
             "Python",
             top_k=0,
         )
+
+
+def test_pipeline_loads_index_into_both_retrievers(monkeypatch, tmp_path):
+    chunks = [
+        DocumentChunk(
+            chunk_id="1",
+            source="test.md",
+            text="retrieval",
+        ),
+        DocumentChunk(
+            chunk_id="2",
+            source="test.md",
+            text="generation",
+        ),
+    ]
+
+    embeddings = object()
+
+    class FakeStore:
+        def __init__(self, directory):
+            pass
+
+        def load(self):
+            return chunks, embeddings
+
+    semantic_loads = []
+    bm25_fits = []
+
+    class FakeSemanticRetriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def load(self, loaded_chunks, loaded_embeddings):
+            semantic_loads.append(
+                (loaded_chunks, loaded_embeddings)
+            )
+
+    class FakeBM25Retriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def fit(self, loaded_chunks):
+            bm25_fits.append(loaded_chunks)
+
+    class FakeLLM:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(
+        "research_assistant.pipeline.IndexStore",
+        FakeStore,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.SemanticRetriever",
+        FakeSemanticRetriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.BM25Retriever",
+        FakeBM25Retriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.LLMClient",
+        FakeLLM,
+    )
+
+    pipeline = ResearchPipeline(
+        use_reranker=False,
+        index_dir=tmp_path,
+    )
+
+    count = pipeline.load_index()
+
+    assert count == 2
+    assert semantic_loads == [(chunks, embeddings)]
+    assert bm25_fits == [chunks]
+
+
+def test_pipeline_load_index_propagates_missing_index_error(
+    monkeypatch,
+    tmp_path,
+):
+    class FakeStore:
+        def __init__(self, directory):
+            pass
+
+        def load(self):
+            raise FileNotFoundError("No index found")
+
+    class FakeSemanticRetriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeBM25Retriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeLLM:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(
+        "research_assistant.pipeline.IndexStore",
+        FakeStore,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.SemanticRetriever",
+        FakeSemanticRetriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.BM25Retriever",
+        FakeBM25Retriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.LLMClient",
+        FakeLLM,
+    )
+
+    pipeline = ResearchPipeline(
+        use_reranker=False,
+        index_dir=tmp_path,
+    )
+
+    with pytest.raises(
+        FileNotFoundError,
+        match="No index found",
+    ):
+        pipeline.load_index()
