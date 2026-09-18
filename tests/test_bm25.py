@@ -130,3 +130,13 @@ def test_bm25_normalizes_query_punctuation():
     )
 
     assert results[0].chunk.source == "python.md"
+
+
+def test_bm25_rejects_empty_collection():
+    retriever = BM25Retriever()
+
+    with pytest.raises(
+        ValueError,
+        match="Cannot index an empty document collection",
+    ):
+        retriever.fit([])
