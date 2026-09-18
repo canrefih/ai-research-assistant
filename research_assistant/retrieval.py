@@ -168,11 +168,19 @@ class SemanticRetriever:
     def fit(self, chunks: list[DocumentChunk]) -> None:
         if not chunks:
             raise ValueError("Cannot index an empty document collection")
+
         self.chunks = chunks
         texts = [c.text for c in chunks]
-        self.embeddings = self.model.encode(
-            texts, normalize_embeddings=True, convert_to_numpy=True
+        embeddings = self.model.encode(
+            texts,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
         )
+
+        if embeddings.ndim != 2:
+            raise ValueError("embeddings must be a 2-dimensional array")
+
+        self.embeddings = embeddings
 
     def load(self, chunks: list[DocumentChunk], embeddings: np.ndarray) -> None:
         if len(chunks) != len(embeddings):
