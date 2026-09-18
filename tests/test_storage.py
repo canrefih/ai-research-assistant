@@ -124,3 +124,23 @@ def test_index_store_rejects_one_dimensional_embeddings_on_save(tmp_path):
         match="embeddings must be a 2-dimensional array",
     ):
         store.save(chunks, embeddings)
+
+
+def test_index_store_preserves_chunk_metadata(tmp_path):
+    chunks = [
+        DocumentChunk(
+            chunk_id="test:0",
+            source="test.md",
+            text="Example text",
+            metadata={"topic": "python"},
+        )
+    ]
+    embeddings = np.zeros((1, 3))
+
+    store = IndexStore(tmp_path)
+
+    store.save(chunks, embeddings)
+    loaded_chunks, loaded_embeddings = store.load()
+
+    assert loaded_chunks == chunks
+    assert np.array_equal(loaded_embeddings, embeddings)

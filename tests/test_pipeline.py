@@ -62,14 +62,15 @@ def test_pipeline_uses_hybrid_retrieval(monkeypatch, tmp_path):
         def __init__(self, *args, **kwargs):
             self.embeddings = None
 
-        def search(self, question, top_k=8):
+        def search(self, question, top_k=8, metadata_filter=None):
             return dense_results[:top_k]
+
 
     class FakeBM25Retriever:
         def __init__(self, *args, **kwargs):
             pass
 
-        def search(self, question, top_k=8):
+        def search(self, question, top_k=8, metadata_filter=None):
             return bm25_results[:top_k]
 
     class FakeReranker:
@@ -410,3 +411,43 @@ def test_pipeline_passes_reranker_model_to_reranker(
     )
 
     assert model_names == ["test-reranker-model"]
+
+
+def test_pipeline_passes_metadata_filter_to_retrievers(monkeypatch):
+    pipeline = ResearchPipeline(use_reranker=False)
+
+    captured = {}
+
+    def fake_semantic_search(query, top_k=8, metadata_filter=None):
+        captured["semantic"] = metadata_filter
+        return []
+
+    def fake_bm25_search(query, top_k=8, metadata_filter=None):
+        captured["bm25"] = metadata_filter
+        return []
+
+    monkeypatch.setattr(
+        pipeline.retriever,
+        "search",
+        fake_semantic_search,
+    )
+    monkeypatch.setattr(
+        pipeline.bm25_retriever,
+        "search",
+        fake_bm25_search,
+    )
+
+    class FakeLLM:
+        def answer(self, question, evidence):
+            return "answer"
+
+    pipeline.llm = FakeLLM()
+
+    pipeline.ask(
+        "Python nedir?",
+        top_k=2,
+        metadata_filter={"topic": "python"},
+    )
+
+    assert captured["semantic"] == {"topic": "python"}
+    assert captured["bm25"] == {"topic": "python"}

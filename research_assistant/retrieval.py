@@ -91,6 +91,7 @@ class BM25Retriever:
         self,
         query: str,
         top_k: int = 8,
+        metadata_filter: dict[str, str] | None = None,
     ) -> list[SearchResult]:
         if not self.tokenized_chunks:
             raise RuntimeError("Retriever is not fitted")
@@ -106,7 +107,22 @@ class BM25Retriever:
             for tokens in self.tokenized_chunks
         ]
 
-        indices = np.argsort(scores)[::-1][:top_k]
+        if metadata_filter is not None:
+            matching_indices = [
+                i
+                for i, chunk in enumerate(self.chunks)
+                if all(
+                    chunk.metadata.get(key) == value
+                    for key, value in metadata_filter.items()
+                )
+            ]
+            indices = sorted(
+                matching_indices,
+                key=lambda i: scores[i],
+                reverse=True,
+            )[:top_k]
+        else:
+            indices = np.argsort(scores)[::-1][:top_k]
 
         return [
             SearchResult(
@@ -198,7 +214,12 @@ class SemanticRetriever:
         self.chunks = chunks
         self.embeddings = embeddings
 
-    def search(self, query: str, top_k: int = 8) -> list[SearchResult]:
+    def search(
+        self,
+        query: str,
+        top_k: int = 8,
+        metadata_filter: dict[str, str] | None = None,
+    ) -> list[SearchResult]:
         if self.embeddings is None:
             raise RuntimeError("Retriever is not fitted")
         if not query.strip():
@@ -225,8 +246,28 @@ class SemanticRetriever:
             )
 
         scores = self.embeddings @ q
-        indices = np.argsort(scores)[::-1][:top_k]
-        return [SearchResult(self.chunks[i], float(scores[i])) for i in indices]
+
+        if metadata_filter is not None:
+            matching_indices = [
+                i
+                for i, chunk in enumerate(self.chunks)
+                if all(
+                    chunk.metadata.get(key) == value
+                    for key, value in metadata_filter.items()
+                )
+            ]
+            indices = sorted(
+                matching_indices,
+                key=lambda i: scores[i],
+                reverse=True,
+            )[:top_k]
+        else:
+            indices = np.argsort(scores)[::-1][:top_k]
+
+        return [
+            SearchResult(self.chunks[i], float(scores[i]))
+            for i in indices
+        ]
 
 
 class Reranker:

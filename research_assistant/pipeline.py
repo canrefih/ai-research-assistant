@@ -46,7 +46,12 @@ class ResearchPipeline:
         self.bm25_retriever.fit(chunks)
         return len(chunks)
 
-    def ask(self, question: str, top_k: int = 8) -> str:
+    def ask(
+        self,
+        question: str,
+        top_k: int = 8,
+        metadata_filter: dict[str, str] | None = None,
+    ) -> str:
         if not question.strip():
             raise ValueError("question must not be empty")
         if top_k < 1:
@@ -55,11 +60,13 @@ class ResearchPipeline:
         dense_results = self.retriever.search(
             question,
             top_k=top_k,
+            metadata_filter=metadata_filter,
         )
 
         bm25_results = self.bm25_retriever.search(
             question,
             top_k=top_k,
+            metadata_filter=metadata_filter,
         )
 
         results = reciprocal_rank_fusion(

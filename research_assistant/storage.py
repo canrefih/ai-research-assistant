@@ -22,7 +22,15 @@ class IndexStore:
         self.directory.mkdir(parents=True, exist_ok=True)
         self.metadata_path.write_text(
             json.dumps(
-                [{"chunk_id": c.chunk_id, "source": c.source, "text": c.text} for c in chunks],
+                [
+                    {
+                        "chunk_id": c.chunk_id,
+                        "source": c.source,
+                        "text": c.text,
+                        "metadata": c.metadata,
+                    }
+                    for c in chunks
+                ],
                 ensure_ascii=False,
                 indent=2,
             ),

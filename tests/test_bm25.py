@@ -140,3 +140,96 @@ def test_bm25_rejects_empty_collection():
         match="Cannot index an empty document collection",
     ):
         retriever.fit([])
+
+
+def test_bm25_retriever_filters_results_by_metadata():
+    chunks = [
+        DocumentChunk(
+            chunk_id="python:0",
+            source="python.md",
+            text="Python programming",
+            metadata={"topic": "python"},
+        ),
+        DocumentChunk(
+            chunk_id="database:0",
+            source="database.md",
+            text="Python database systems",
+            metadata={"topic": "database"},
+        ),
+    ]
+
+    retriever = BM25Retriever()
+    retriever.fit(chunks)
+
+    results = retriever.search(
+        "Python",
+        top_k=2,
+        metadata_filter={"topic": "python"},
+    )
+
+    assert [result.chunk.chunk_id for result in results] == ["python:0"]
+
+
+def test_bm25_retriever_returns_empty_for_non_matching_metadata_filter():
+    chunks = [
+        DocumentChunk(
+            chunk_id="python:0",
+            source="python.md",
+            text="Python programming",
+            metadata={"topic": "python"},
+        ),
+        DocumentChunk(
+            chunk_id="database:0",
+            source="database.md",
+            text="Database systems",
+            metadata={"topic": "database"},
+        ),
+    ]
+
+    retriever = BM25Retriever()
+    retriever.fit(chunks)
+
+    results = retriever.search(
+        "Python",
+        top_k=2,
+        metadata_filter={"topic": "rust"},
+    )
+
+    assert results == []
+
+
+def test_bm25_retriever_requires_all_metadata_filters():
+    chunks = [
+        DocumentChunk(
+            chunk_id="python-tr:0",
+            source="python-tr.md",
+            text="Python programming",
+            metadata={"topic": "python", "language": "tr"},
+        ),
+        DocumentChunk(
+            chunk_id="python-en:0",
+            source="python-en.md",
+            text="Python programming",
+            metadata={"topic": "python", "language": "en"},
+        ),
+        DocumentChunk(
+            chunk_id="database-tr:0",
+            source="database-tr.md",
+            text="Database systems",
+            metadata={"topic": "database", "language": "tr"},
+        ),
+    ]
+
+    retriever = BM25Retriever()
+    retriever.fit(chunks)
+
+    results = retriever.search(
+        "Python",
+        top_k=3,
+        metadata_filter={
+            "topic": "python",
+            "language": "tr",
+        },
+    )
+
+    assert [result.chunk.chunk_id for result in results] == ["python-tr:0"]
