@@ -177,6 +177,10 @@ class SemanticRetriever:
     def load(self, chunks: list[DocumentChunk], embeddings: np.ndarray) -> None:
         if len(chunks) != len(embeddings):
             raise ValueError("chunks and embeddings must have the same length")
+
+        if embeddings.ndim != 2:
+            raise ValueError("embeddings must be a 2-dimensional array")
+
         self.chunks = chunks
         self.embeddings = embeddings
 

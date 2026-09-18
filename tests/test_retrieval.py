@@ -111,3 +111,28 @@ def test_semantic_retriever_rejects_invalid_top_k(monkeypatch):
             "Python",
             top_k=0,
         )
+
+
+def test_semantic_retriever_load_rejects_non_2d_embeddings(monkeypatch):
+    retriever = create_retriever(monkeypatch)
+
+    chunks = [
+        DocumentChunk(
+            "python:0",
+            "python.md",
+            "Python programming",
+        ),
+        DocumentChunk(
+            "database:0",
+            "database.md",
+            "Database systems",
+        ),
+    ]
+
+    embeddings = np.array([1.0, 2.0], dtype=np.float32)
+
+    with pytest.raises(
+        ValueError,
+        match="embeddings must be a 2-dimensional array",
+    ):
+        retriever.load(chunks, embeddings)
