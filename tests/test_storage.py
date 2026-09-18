@@ -144,3 +144,44 @@ def test_index_store_preserves_chunk_metadata(tmp_path):
 
     assert loaded_chunks == chunks
     assert np.array_equal(loaded_embeddings, embeddings)
+
+
+def test_index_store_can_check_index_exists(tmp_path):
+    store = IndexStore(tmp_path)
+
+    assert store.exists() is False
+
+    chunks = [
+        DocumentChunk(
+            chunk_id="doc:0",
+            source="doc.md",
+            text="Python is a programming language.",
+        )
+    ]
+    embeddings = np.array([[1.0, 0.0]])
+
+    store.save(chunks, embeddings)
+
+    assert store.exists() is True
+
+
+def test_index_store_exists_requires_both_files(tmp_path):
+    store = IndexStore(tmp_path)
+
+    store.metadata_path.write_text(
+        "[]",
+        encoding="utf-8",
+    )
+
+    assert store.exists() is False
+
+
+def test_index_store_exists_requires_metadata_file(tmp_path):
+    store = IndexStore(tmp_path)
+
+    np.save(
+        store.embeddings_path,
+        np.array([[1.0, 0.0]]),
+    )
+
+    assert store.exists() is False

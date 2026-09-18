@@ -14,6 +14,9 @@ class IndexStore:
         self.metadata_path = self.directory / "metadata.json"
         self.embeddings_path = self.directory / "embeddings.npy"
 
+    def exists(self) -> bool:
+        return self.metadata_path.exists() and self.embeddings_path.exists()
+
     def save(self, chunks: list[DocumentChunk], embeddings: np.ndarray) -> None:
         if len(chunks) != len(embeddings):
             raise ValueError("chunks and embeddings must have the same length")
