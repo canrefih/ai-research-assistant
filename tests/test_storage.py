@@ -66,3 +66,23 @@ def test_index_store_rejects_one_dimensional_embeddings(tmp_path):
         match="embeddings must be a 2-dimensional array",
     ):
         store.load()
+
+
+def test_index_store_rejects_invalid_metadata_json(tmp_path):
+    store = IndexStore(tmp_path / "index")
+    store.directory.mkdir(parents=True, exist_ok=True)
+
+    store.metadata_path.write_text(
+        '{"chunk_id": "a:0", "source": "a.md",',
+        encoding="utf-8",
+    )
+    np.save(
+        store.embeddings_path,
+        np.array([[1.0, 0.0]], dtype=np.float32),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Invalid index metadata",
+    ):
+        store.load()

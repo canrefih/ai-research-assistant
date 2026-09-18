@@ -33,7 +33,15 @@ class IndexStore:
             raise FileNotFoundError(
                 f"No index found at {self.directory}. Run 'research-assistant index <directory>' first."
             )
-        raw = json.loads(self.metadata_path.read_text(encoding="utf-8"))
+        try:
+            raw = json.loads(
+                self.metadata_path.read_text(encoding="utf-8")
+            )
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Invalid index metadata: {self.metadata_path}"
+            ) from exc
+
         chunks = [DocumentChunk(**item) for item in raw]
         embeddings = np.load(
             self.embeddings_path,
