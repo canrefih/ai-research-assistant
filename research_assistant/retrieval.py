@@ -50,6 +50,8 @@ class Reranker:
     def rerank(
         self, query: str, results: list[SearchResult], top_k: int = 5
     ) -> list[SearchResult]:
+        if top_k < 1:
+            raise ValueError("top_k must be at least 1")
         if not results:
             return []
         pairs = [(query, r.chunk.text) for r in results]

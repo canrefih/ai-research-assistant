@@ -21,6 +21,7 @@ def test_ask_rejects_invalid_top_k(monkeypatch, capsys):
         "sys.argv",
         ["research-assistant", "ask", "test", "--top-k", "0"],
     )
+
     monkeypatch.setattr(
         "research_assistant.cli.ResearchPipeline",
         FakePipeline,
@@ -33,3 +34,82 @@ def test_ask_rejects_invalid_top_k(monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert captured.err.strip() == "Error: top_k must be at least 1"
+
+
+def test_ask_rejects_missing_index(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "research-assistant",
+            "ask",
+            "What is RAG?",
+            "--index-dir",
+            "does-not-exist",
+        ],
+    )
+
+    class MissingIndexPipeline:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def load_index(self):
+            raise FileNotFoundError(
+                "No index found at does-not-exist. "
+                "Run 'research-assistant index <directory>' first."
+            )
+
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        MissingIndexPipeline,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+
+    captured = capsys.readouterr()
+    assert (
+        captured.err.strip()
+        == "Error: No index found at does-not-exist. "
+        "Run 'research-assistant index <directory>' first."
+    )
+
+
+def test_index_rejects_empty_directory(monkeypatch, capsys, tmp_path):
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "research-assistant",
+            "index",
+            str(empty_dir),
+        ],
+    )
+
+    class EmptyDirectoryPipeline:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def index(self, directory):
+            raise ValueError(
+                f"No .md or .txt documents found in {directory}"
+            )
+
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        EmptyDirectoryPipeline,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+
+    captured = capsys.readouterr()
+    assert (
+        captured.err.strip()
+        == f"Error: No .md or .txt documents found in {empty_dir}"
+    )
