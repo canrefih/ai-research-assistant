@@ -113,3 +113,37 @@ def test_index_rejects_empty_directory(monkeypatch, capsys, tmp_path):
         captured.err.strip()
         == f"Error: No .md or .txt documents found in {empty_dir}"
     )
+
+
+def test_ask_handles_runtime_error(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "research-assistant",
+            "ask",
+            "What is RAG?",
+        ],
+    )
+
+    class RuntimeErrorPipeline:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def load_index(self):
+            return 2
+
+        def ask(self, question, top_k=8):
+            raise RuntimeError("Retriever is not fitted")
+
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        RuntimeErrorPipeline,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+
+    captured = capsys.readouterr()
+    assert captured.err.strip() == "Error: Retriever is not fitted"

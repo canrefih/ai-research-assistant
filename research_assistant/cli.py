@@ -44,7 +44,7 @@ def main() -> None:
             print(f"Loaded {count} chunks from {args.index_dir}.")
             print(pipeline.ask(args.question, top_k=args.top_k))
 
-    except (ValueError, FileNotFoundError) as exc:
+    except (ValueError, FileNotFoundError, RuntimeError) as exc:
         parser.exit(1, f"Error: {exc}\n")
 
 
