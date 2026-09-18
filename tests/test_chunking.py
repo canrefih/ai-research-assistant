@@ -17,3 +17,37 @@ def test_document_chunk_supports_metadata():
     )
 
     assert chunk.metadata == {"topic": "python"}
+
+
+def test_chunk_text_preserves_metadata():
+    chunks = chunk_text(
+        "one two three four",
+        "test.md",
+        chunk_size=2,
+        overlap=0,
+        metadata={
+            "source": "test.md",
+            "file_type": "md",
+        },
+    )
+
+    assert len(chunks) == 2
+    assert all(
+        chunk.metadata == {
+            "source": "test.md",
+            "file_type": "md",
+        }
+        for chunk in chunks
+    )
+
+
+def test_chunk_text_defaults_to_empty_metadata():
+    chunks = chunk_text(
+        "one two three",
+        "test.md",
+        chunk_size=2,
+        overlap=0,
+    )
+
+    assert len(chunks) == 2
+    assert all(chunk.metadata == {} for chunk in chunks)
