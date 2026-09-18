@@ -17,6 +17,8 @@ class IndexStore:
     def save(self, chunks: list[DocumentChunk], embeddings: np.ndarray) -> None:
         if len(chunks) != len(embeddings):
             raise ValueError("chunks and embeddings must have the same length")
+        if embeddings.ndim != 2:
+            raise ValueError("embeddings must be a 2-dimensional array")
         self.directory.mkdir(parents=True, exist_ok=True)
         self.metadata_path.write_text(
             json.dumps(

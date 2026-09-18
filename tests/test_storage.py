@@ -96,3 +96,31 @@ def test_index_store_rejects_missing_index(tmp_path):
         match="No index found",
     ):
         store.load()
+
+
+def test_index_store_rejects_one_dimensional_embeddings_on_save(tmp_path):
+    store = IndexStore(tmp_path)
+    chunks = [
+        DocumentChunk(
+            chunk_id="1",
+            source="test.md",
+            text="retrieval",
+        ),
+        DocumentChunk(
+            chunk_id="2",
+            source="test.md",
+            text="search",
+        ),
+        DocumentChunk(
+            chunk_id="3",
+            source="test.md",
+            text="embedding",
+        ),
+    ]
+    embeddings = np.zeros(3)
+
+    with pytest.raises(
+        ValueError,
+        match="embeddings must be a 2-dimensional array",
+    ):
+        store.save(chunks, embeddings)
