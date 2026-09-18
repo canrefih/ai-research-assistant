@@ -4,18 +4,19 @@ A local-first, citation-aware research assistant for turning Markdown and text d
 
 ## What it does
 
-The project implements a practical retrieve → rerank → synthesize pipeline:
+The project implements a practical hybrid retrieval and reranking pipeline:
 
 1. Ingest Markdown/text documents and preserve their source paths.
 2. Split documents into overlapping chunks.
 3. Create dense embeddings with Sentence Transformers.
 4. Persist chunks and embeddings to a local index.
-5. Retrieve the most relevant candidates for a question.
-6. Optionally rerank candidates with a CrossEncoder.
-7. Send only the retrieved evidence to an OpenAI-compatible chat endpoint.
-8. Ask the model to cite the supplied sources as [1], [2], etc.
+5. Retrieve candidates using both dense semantic search and BM25.
+6. Combine retrieval results with reciprocal rank fusion.
+7. Optionally rerank candidates with a CrossEncoder.
+8. Send only the retrieved evidence to an OpenAI-compatible chat endpoint.
+9. Ask the model to cite the supplied sources as [1], [2], etc.
 
-This keeps the core small while leaving clear extension points for hybrid retrieval, web search, evaluation, PDF ingestion, and a UI.
+This keeps the core small while leaving clear extension points for web search, evaluation, PDF ingestion, and a UI.
 
 ## Architecture
 
@@ -53,6 +54,7 @@ This keeps the core small while leaving clear extension points for hybrid retrie
 - Markdown and plain-text ingestion
 - Overlapping chunking with source metadata
 - Dense semantic retrieval
+- BM25 lexical retrieval
 - Hybrid dense + BM25 retrieval with reciprocal rank fusion
 - Optional CrossEncoder reranking
 - Persistent local NumPy-based index
@@ -70,10 +72,12 @@ This keeps the core small while leaving clear extension points for hybrid retrie
 - An OpenAI-compatible LLM endpoint is optional
 
 Default embedding model:
-sentence-transformers/all-MiniLM-L6-v2
+
+    sentence-transformers/all-MiniLM-L6-v2
 
 Optional reranker:
-cross-encoder/ms-marco-MiniLM-L6-v2
+
+    cross-encoder/ms-marco-MiniLM-L6-v2
 
 ## Installation
 
@@ -114,11 +118,11 @@ The LLM is optional. Without configuration, the application still retrieves and 
 Put research material in a directory such as:
 
     data/
-    ├── papers/
-    │   ├── paper-one.md
-    │   ├── paper-two.md
-    │   └── notes.txt
-    └── sample/
+    +-- papers/
+    |   +-- paper-one.md
+    |   +-- paper-two.md
+    |   +-- notes.txt
+    +-- sample/
 
 Then run:
 
@@ -157,30 +161,41 @@ The repository contains a tiny sample corpus in data/sample/.
 ## Project structure
 
     ai-research-assistant/
-    ├── data/
-    │   └── sample/                 # Small example corpus
-    ├── research_assistant/
-    │   ├── chunking.py             # Chunking and overlap
-    │   ├── cli.py                  # Command-line interface
-    │   ├── ingestion.py            # Document discovery/loading
-    │   ├── llm.py                  # OpenAI-compatible LLM client
-    │   ├── models.py               # Core data models
-    │   ├── pipeline.py             # End-to-end orchestration
-    │   ├── retrieval.py            # Dense retrieval + reranking
-    │   └── storage.py              # Local index persistence
-    ├── tests/
-    │   ├── test_chunking.py
-    │   └── test_ingestion.py
-    ├── .env.example
-    ├── .gitignore
-    ├── pyproject.toml
-    └── README.md
+    +-- data/
+    |   +-- sample/                 # Small example corpus
+    +-- research_assistant/
+    |   +-- chunking.py             # Chunking and overlap
+    |   +-- cli.py                  # Command-line interface
+    |   +-- ingestion.py            # Document discovery/loading
+    |   +-- llm.py                  # OpenAI-compatible LLM client
+    |   +-- models.py               # Core data models
+    |   +-- pipeline.py             # End-to-end orchestration
+    |   +-- retrieval.py            # Dense, BM25, fusion, and reranking
+    |   +-- storage.py              # Local index persistence
+    +-- tests/
+    |   +-- test_bm25.py
+    |   +-- test_chunking.py
+    |   +-- test_cli.py
+    |   +-- test_fusion.py
+    |   +-- test_ingestion.py
+    |   +-- test_pipeline.py
+    |   +-- test_retrieval.py
+    |   +-- test_reranker.py
+    |   +-- test_storage.py
+    +-- .env.example
+    +-- .gitignore
+    +-- pyproject.toml
+    +-- README.md
 
 ## Design decisions
 
+### Why hybrid retrieval?
+
+Dense retrieval captures semantic similarity, while BM25 provides a strong lexical matching signal. Combining both result lists with reciprocal rank fusion improves retrieval robustness without requiring a separate vector database.
+
 ### Why retrieve + rerank?
 
-Dense retrieval is efficient because documents and queries are embedded independently. A CrossEncoder then scores a smaller candidate set jointly with the query. This separates the fast broad search stage from the more expensive precision stage.
+Dense and lexical retrieval efficiently produce a candidate set. A CrossEncoder then scores the candidates jointly with the query. This separates the broad retrieval stage from the more expensive precision stage.
 
 ### Why persist the index?
 
