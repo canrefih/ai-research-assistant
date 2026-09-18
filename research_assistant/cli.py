@@ -20,18 +20,36 @@ def main() -> None:
         default="data/index",
         help="Directory used to store the local index",
     )
+    index.add_argument(
+        "--embedding-model",
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        help="Sentence Transformer model used for semantic retrieval",
+    )
 
     ask = sub.add_parser("ask", help="Ask a question against an existing index")
     ask.add_argument("question")
     ask.add_argument("--no-reranker", action="store_true")
     ask.add_argument("--top-k", type=int, default=8)
     ask.add_argument("--index-dir", default="data/index")
+    ask.add_argument(
+        "--embedding-model",
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        help="Sentence Transformer model used for semantic retrieval",
+    )
+    ask.add_argument(
+        "--reranker-model",
+        default="cross-encoder/ms-marco-MiniLM-L6-v2",
+        help="CrossEncoder model used for reranking",
+    )
 
     args = parser.parse_args()
 
     try:
         if args.command == "index":
-            pipeline = ResearchPipeline(index_dir=args.index_dir)
+            pipeline = ResearchPipeline(
+                index_dir=args.index_dir,
+                embedding_model=args.embedding_model,
+            )
             count = pipeline.index(args.directory)
             print(f"Indexed {count} chunks into {args.index_dir}.")
 
@@ -39,6 +57,8 @@ def main() -> None:
             pipeline = ResearchPipeline(
                 use_reranker=not args.no_reranker,
                 index_dir=args.index_dir,
+                embedding_model=args.embedding_model,
+                reranker_model=args.reranker_model,
             )
             count = pipeline.load_index()
             print(f"Loaded {count} chunks from {args.index_dir}.")

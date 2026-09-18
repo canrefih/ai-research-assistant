@@ -16,10 +16,18 @@ class ResearchPipeline:
         self,
         use_reranker: bool = True,
         index_dir: str | Path = "data/index",
+        embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+        reranker_model: str = "cross-encoder/ms-marco-MiniLM-L6-v2",
     ):
-        self.retriever = SemanticRetriever()
+        self.retriever = SemanticRetriever(
+            model_name=embedding_model,
+        )
         self.bm25_retriever = BM25Retriever()
-        self.reranker = Reranker() if use_reranker else None
+        self.reranker = (
+            Reranker(model_name=reranker_model)
+            if use_reranker
+            else None
+        )
         self.llm = LLMClient()
         self.store = IndexStore(index_dir)
 

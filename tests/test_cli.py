@@ -185,3 +185,83 @@ def test_ask_prints_loaded_count_and_answer(monkeypatch, capsys):
         "fake answer\n"
     )
     assert captured.err == ""
+
+
+def test_ask_passes_model_names_to_pipeline(monkeypatch):
+    pipeline_args = {}
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            pipeline_args.update(kwargs)
+
+        def load_index(self):
+            return 1
+
+        def ask(self, question, top_k=8):
+            return "answer"
+
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        FakePipeline,
+    )
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "research-assistant",
+            "ask",
+            "What is Python?",
+            "--no-reranker",
+            "--embedding-model",
+            "test-embedding-model",
+            "--reranker-model",
+            "test-reranker-model",
+        ],
+    )
+
+    from research_assistant.cli import main
+
+    main()
+
+    assert pipeline_args == {
+        "use_reranker": False,
+        "index_dir": "data/index",
+        "embedding_model": "test-embedding-model",
+        "reranker_model": "test-reranker-model",
+    }
+
+
+def test_index_passes_embedding_model_to_pipeline(monkeypatch):
+    pipeline_args = {}
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            pipeline_args.update(kwargs)
+
+        def index(self, directory):
+            return 3
+
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        FakePipeline,
+    )
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "research-assistant",
+            "index",
+            "data/sample",
+            "--embedding-model",
+            "test-embedding-model",
+        ],
+    )
+
+    from research_assistant.cli import main
+
+    main()
+
+    assert pipeline_args == {
+        "index_dir": "data/index",
+        "embedding_model": "test-embedding-model",
+    }

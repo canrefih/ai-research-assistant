@@ -322,3 +322,91 @@ def test_pipeline_load_index_propagates_missing_index_error(
         match="No index found",
     ):
         pipeline.load_index()
+
+
+def test_pipeline_passes_embedding_model_to_retriever(
+    monkeypatch,
+    tmp_path,
+):
+    model_names = []
+
+    class FakeSemanticRetriever:
+        def __init__(self, model_name):
+            model_names.append(model_name)
+
+    class FakeBM25Retriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeLLM:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(
+        "research_assistant.pipeline.SemanticRetriever",
+        FakeSemanticRetriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.BM25Retriever",
+        FakeBM25Retriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.LLMClient",
+        FakeLLM,
+    )
+
+    ResearchPipeline(
+        use_reranker=False,
+        index_dir=tmp_path,
+        embedding_model="test-embedding-model",
+    )
+
+    assert model_names == ["test-embedding-model"]
+
+
+def test_pipeline_passes_reranker_model_to_reranker(
+    monkeypatch,
+    tmp_path,
+):
+    model_names = []
+
+    class FakeSemanticRetriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeBM25Retriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeReranker:
+        def __init__(self, model_name):
+            model_names.append(model_name)
+
+    class FakeLLM:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(
+        "research_assistant.pipeline.SemanticRetriever",
+        FakeSemanticRetriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.BM25Retriever",
+        FakeBM25Retriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.Reranker",
+        FakeReranker,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.LLMClient",
+        FakeLLM,
+    )
+
+    ResearchPipeline(
+        use_reranker=True,
+        index_dir=tmp_path,
+        reranker_model="test-reranker-model",
+    )
+
+    assert model_names == ["test-reranker-model"]
