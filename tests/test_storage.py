@@ -86,3 +86,13 @@ def test_index_store_rejects_invalid_metadata_json(tmp_path):
         match="Invalid index metadata",
     ):
         store.load()
+
+
+def test_index_store_rejects_missing_index(tmp_path):
+    store = IndexStore(tmp_path / "index")
+
+    with pytest.raises(
+        FileNotFoundError,
+        match="No index found",
+    ):
+        store.load()
