@@ -20,32 +20,32 @@ This keeps the core small while leaving clear extension points for hybrid retrie
 ## Architecture
 
     Documents
-        │
-        ▼
-    Ingestion → Chunking + source metadata
-        │
-        ▼
+        |
+        v
+    Ingestion -> Chunking + source metadata
+        |
+        v
     Sentence Transformer embeddings
-        │
-        ▼
+        |
+        v
     Persistent local index
-        │
-        ▼
+        |
+        v
     Dense + BM25 retrieval
-        │
-        ▼
+        |
+        v
     Reciprocal rank fusion
-        │
-        ▼
+        |
+        v
     Optional CrossEncoder reranking
-        │
-        ▼
+        |
+        v
     Evidence context
-        │
-        ▼
+        |
+        v
     OpenAI-compatible LLM
-        │
-        ▼
+        |
+        v
     Answer + source citations
 
 ## Features
