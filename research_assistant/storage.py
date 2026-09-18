@@ -39,6 +39,9 @@ class IndexStore:
             self.embeddings_path,
             allow_pickle=False,
         )
+        if embeddings.ndim != 2:
+            raise ValueError("embeddings must be a 2-dimensional array")
+
         if len(chunks) != len(embeddings):
             raise ValueError("Index metadata and embeddings are out of sync")
         return chunks, embeddings
