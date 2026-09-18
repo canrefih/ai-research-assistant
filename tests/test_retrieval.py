@@ -215,3 +215,21 @@ def test_semantic_retriever_search_rejects_invalid_query_embedding(
         match="query embedding must contain exactly one vector",
     ):
         retriever.search("Python")
+
+
+def test_load_rejects_wrong_embedding_dimension():
+    retriever = SemanticRetriever()
+    chunks = [
+        DocumentChunk(
+            chunk_id="1",
+            source="test.md",
+            text="retrieval",
+        )
+    ]
+    embeddings = np.zeros((1, 128))
+
+    with pytest.raises(
+        ValueError,
+        match="embeddings must have dimension 384",
+    ):
+        retriever.load(chunks, embeddings)

@@ -189,6 +189,12 @@ class SemanticRetriever:
         if embeddings.ndim != 2:
             raise ValueError("embeddings must be a 2-dimensional array")
 
+        expected_dimension = self.model.get_embedding_dimension()
+        if embeddings.shape[1] != expected_dimension:
+            raise ValueError(
+                f"embeddings must have dimension {expected_dimension}"
+            )
+
         self.chunks = chunks
         self.embeddings = embeddings
 
