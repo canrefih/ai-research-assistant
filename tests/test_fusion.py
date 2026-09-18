@@ -84,3 +84,11 @@ def test_rrf_rejects_invalid_top_k():
             [[]],
             top_k=0,
         )
+
+
+def test_rrf_rejects_invalid_k():
+    with pytest.raises(ValueError, match="k must be at least 1"):
+        reciprocal_rank_fusion(
+            [[]],
+            k=0,
+        )
