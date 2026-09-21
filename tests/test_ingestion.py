@@ -171,3 +171,148 @@ def test_load_directory_reads_htm(tmp_path):
         "source": "research.htm",
         "file_type": "htm",
     }
+
+
+def test_fetch_html(monkeypatch):
+    class FakeResponse:
+        text = "<html><body><h1>Hello</h1></body></html>"
+
+        def raise_for_status(self):
+            pass
+
+    def fake_get(url, timeout):
+        assert url == "https://example.com"
+        assert timeout == 10
+        return FakeResponse()
+
+    monkeypatch.setattr(
+        "research_assistant.ingestion.requests.get",
+        fake_get,
+    )
+
+    from research_assistant.ingestion import _fetch_html
+
+    assert _fetch_html("https://example.com") == (
+        "<html><body><h1>Hello</h1></body></html>"
+    )
+
+
+def test_parse_html_removes_non_content_elements():
+    from research_assistant.ingestion import _parse_html
+
+    html = """
+    <html>
+        <head>
+            <style>.hidden { display: none; }</style>
+            <script>alert("ignore me");</script>
+        </head>
+        <body>
+            <h1>Research</h1>
+            <p>Useful content.</p>
+            <noscript>Fallback</noscript>
+        </body>
+    </html>
+    """
+
+    text = _parse_html(html)
+
+    assert "Research" in text
+    assert "Useful content." in text
+    assert "ignore me" not in text
+    assert "display: none" not in text
+    assert "Fallback" not in text
+
+
+def test_fetch_web_page(monkeypatch):
+    from research_assistant.ingestion import fetch_web_page
+
+    def fake_fetch_html(url):
+        assert url == "https://example.com"
+        return """
+        <html>
+            <body>
+                <h1>Research</h1>
+                <p>Useful content.</p>
+                <script>alert("ignore me");</script>
+            </body>
+        </html>
+        """
+
+    monkeypatch.setattr(
+        "research_assistant.ingestion._fetch_html",
+        fake_fetch_html,
+    )
+
+    text = fetch_web_page("https://example.com")
+
+    assert "Research" in text
+    assert "Useful content." in text
+    assert "ignore me" not in text
+
+
+def test_load_url_creates_chunks(monkeypatch):
+    from research_assistant.ingestion import load_url
+
+    def fake_fetch_web_page(url):
+        assert url == "https://example.com/research"
+        return "Semantic retrieval is useful for research."
+
+    monkeypatch.setattr(
+        "research_assistant.ingestion.fetch_web_page",
+        fake_fetch_web_page,
+    )
+
+    chunks = load_url("https://example.com/research")
+
+    assert len(chunks) == 1
+    assert chunks[0].text == "Semantic retrieval is useful for research."
+    assert chunks[0].metadata == {
+        "source": "https://example.com/research",
+        "file_type": "html",
+    }
+
+
+def test_fetch_html_raises_for_http_error(monkeypatch):
+    import pytest
+    import requests
+
+    from research_assistant.ingestion import _fetch_html
+
+    class FakeResponse:
+        text = ""
+
+        def raise_for_status(self):
+            raise requests.HTTPError("404 Client Error")
+
+    def fake_get(url, timeout):
+        return FakeResponse()
+
+    monkeypatch.setattr(
+        "research_assistant.ingestion.requests.get",
+        fake_get,
+    )
+
+    with pytest.raises(requests.HTTPError, match="404 Client Error"):
+        _fetch_html("https://example.com/missing")
+
+
+def test_fetch_html_propagates_timeout(monkeypatch):
+    import requests
+
+    from research_assistant.ingestion import _fetch_html
+
+    def fake_get(url, timeout):
+        assert timeout == 10
+        raise requests.Timeout("Request timed out")
+
+    monkeypatch.setattr(
+        "research_assistant.ingestion.requests.get",
+        fake_get,
+    )
+
+    try:
+        _fetch_html("https://example.com")
+    except requests.Timeout as exc:
+        assert str(exc) == "Request timed out"
+    else:
+        raise AssertionError("Expected requests.Timeout")

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import requests
 from bs4 import BeautifulSoup
 from pypdf import PdfReader
 
@@ -50,8 +51,14 @@ def _read_pdf(path: Path) -> str:
 
 
 def _read_html(path: Path) -> str:
-    soup = BeautifulSoup(
+    return _parse_html(
         path.read_text(encoding="utf-8"),
+    )
+
+
+def _parse_html(html: str) -> str:
+    soup = BeautifulSoup(
+        html,
         "html.parser",
     )
 
@@ -59,3 +66,30 @@ def _read_html(path: Path) -> str:
         element.decompose()
 
     return soup.get_text(" ", strip=True)
+
+
+def _fetch_html(url: str) -> str:
+    response = requests.get(
+        url,
+        timeout=10,
+    )
+    response.raise_for_status()
+    return response.text
+
+
+def fetch_web_page(url: str) -> str:
+    html = _fetch_html(url)
+    return _parse_html(html)
+
+
+def load_url(url: str) -> list[DocumentChunk]:
+    text = fetch_web_page(url)
+
+    return chunk_text(
+        text,
+        url,
+        metadata={
+            "source": url,
+            "file_type": "html",
+        },
+    )
