@@ -1,4 +1,5 @@
 import pytest
+import requests
 
 from research_assistant.cli import main
 
@@ -265,3 +266,83 @@ def test_index_passes_embedding_model_to_pipeline(monkeypatch):
         "index_dir": "data/index",
         "embedding_model": "test-embedding-model",
     }
+
+
+def test_index_url_passes_url_and_options_to_pipeline(monkeypatch, capsys):
+    pipeline_args = {}
+    call_args = {}
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            pipeline_args.update(kwargs)
+
+        def index_url(self, url):
+            call_args["url"] = url
+            return 4
+
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        FakePipeline,
+    )
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "research-assistant",
+            "index-url",
+            "https://example.com/research",
+            "--index-dir",
+            "data/web-index",
+            "--embedding-model",
+            "test-embedding-model",
+        ],
+    )
+
+    main()
+
+    assert pipeline_args == {
+        "index_dir": "data/web-index",
+        "embedding_model": "test-embedding-model",
+    }
+    assert call_args == {
+        "url": "https://example.com/research",
+    }
+
+    captured = capsys.readouterr()
+
+    assert captured.out == (
+        "Indexed 4 chunks from https://example.com/research "
+        "into data/web-index.\n"
+    )
+    assert captured.err == ""
+
+
+def test_index_url_handles_request_error(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "research-assistant",
+            "index-url",
+            "https://example.com/research",
+        ],
+    )
+
+    class RequestErrorPipeline:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def index_url(self, url):
+            raise requests.Timeout("request timed out")
+
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        RequestErrorPipeline,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+
+    captured = capsys.readouterr()
+    assert captured.err.strip() == "Error: request timed out"

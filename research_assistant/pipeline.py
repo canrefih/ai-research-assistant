@@ -1,7 +1,7 @@
 from pathlib import Path
 from .vector_store import VectorStoreProtocol
 
-from .ingestion import load_directory
+from .ingestion import load_directory, load_url
 from .llm import LLMClient
 from .retrieval import (
     BM25Retriever,
@@ -40,6 +40,18 @@ class ResearchPipeline:
         chunks = load_directory(directory)
         if not chunks:
             raise ValueError(f"No .md or .txt documents found in {directory}")
+        self.retriever.fit(chunks)
+        self.bm25_retriever.fit(chunks)
+
+        if self.vector_store is None:
+            self.store.save(chunks, self.retriever.embeddings)
+
+        return len(chunks)
+
+    def index_url(self, url: str) -> int:
+        chunks = load_url(url)
+        if not chunks:
+            raise ValueError(f"No content found at {url}")
         self.retriever.fit(chunks)
         self.bm25_retriever.fit(chunks)
 

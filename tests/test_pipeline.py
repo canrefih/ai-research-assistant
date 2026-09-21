@@ -955,3 +955,61 @@ def test_pipeline_can_close_vector_store():
     pipeline.close()
 
     assert vector_store.closed is True
+
+
+def test_index_url(monkeypatch):
+    from research_assistant.models import DocumentChunk
+
+    chunks = [
+        DocumentChunk(
+            chunk_id="web-1",
+            source="https://example.com",
+            text="Web research content",
+        )
+    ]
+
+    monkeypatch.setattr(
+        "research_assistant.pipeline.load_url",
+        lambda url: chunks,
+    )
+
+    class FakeRetriever:
+        embeddings = [[1.0, 2.0]]
+
+        def fit(self, chunks):
+            assert chunks == [
+                DocumentChunk(
+                    chunk_id="web-1",
+                    source="https://example.com",
+                    text="Web research content",
+                )
+            ]
+
+    class FakeBM25:
+        def fit(self, chunks):
+            assert chunks == [
+                DocumentChunk(
+                    chunk_id="web-1",
+                    source="https://example.com",
+                    text="Web research content",
+                )
+            ]
+
+    class FakeStore:
+        def save(self, chunks, embeddings):
+            assert chunks == [
+                DocumentChunk(
+                    chunk_id="web-1",
+                    source="https://example.com",
+                    text="Web research content",
+                )
+            ]
+            assert embeddings == [[1.0, 2.0]]
+
+    pipeline = ResearchPipeline.__new__(ResearchPipeline)
+    pipeline.retriever = FakeRetriever()
+    pipeline.bm25_retriever = FakeBM25()
+    pipeline.vector_store = None
+    pipeline.store = FakeStore()
+
+    assert pipeline.index_url("https://example.com") == 1

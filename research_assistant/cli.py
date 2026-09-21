@@ -1,5 +1,6 @@
 import argparse
 
+import requests
 from dotenv import load_dotenv
 
 from .pipeline import ResearchPipeline
@@ -42,6 +43,25 @@ def main() -> None:
         help="CrossEncoder model used for reranking",
     )
 
+    index_url = sub.add_parser(
+        "index-url",
+        help="Index a web page from a URL",
+    )
+    index_url.add_argument(
+        "url",
+        help="Web page URL to index",
+    )
+    index_url.add_argument(
+        "--index-dir",
+        default="data/index",
+        help="Directory used to store the local index",
+    )
+    index_url.add_argument(
+        "--embedding-model",
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        help="Sentence Transformer model used for semantic retrieval",
+    )
+
     args = parser.parse_args()
 
     try:
@@ -52,6 +72,14 @@ def main() -> None:
             )
             count = pipeline.index(args.directory)
             print(f"Indexed {count} chunks into {args.index_dir}.")
+
+        elif args.command == "index-url":
+            pipeline = ResearchPipeline(
+                index_dir=args.index_dir,
+                embedding_model=args.embedding_model,
+            )
+            count = pipeline.index_url(args.url)
+            print(f"Indexed {count} chunks from {args.url} into {args.index_dir}.")
 
         elif args.command == "ask":
             pipeline = ResearchPipeline(
@@ -64,7 +92,12 @@ def main() -> None:
             print(f"Loaded {count} chunks from {args.index_dir}.")
             print(pipeline.ask(args.question, top_k=args.top_k))
 
-    except (ValueError, FileNotFoundError, RuntimeError) as exc:
+    except (
+        ValueError,
+        FileNotFoundError,
+        RuntimeError,
+        requests.RequestException,
+    ) as exc:
         parser.exit(1, f"Error: {exc}\n")
 
 
