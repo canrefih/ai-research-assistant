@@ -15,9 +15,10 @@ The project implements a practical hybrid retrieval and reranking pipeline:
 7. Combine retrieval results with reciprocal rank fusion.
 8. Optionally rerank candidates with a CrossEncoder.
 9. Optionally augment local evidence with Tavily web search results.
-10. Expands queries with LLM-generated alternative search queries
-11. Send the collected evidence to an OpenAI-compatible chat endpoint.
-12. Ask the model to cite the supplied sources as [1], [2], etc.
+10. Optionally verifies web sources before adding them to the evidence
+11. Expands queries with LLM-generated alternative search queries
+12. Send the collected evidence to an OpenAI-compatible chat endpoint.
+13. Ask the model to cite the supplied sources as [1], [2], etc.
 
 Web search is opt-in through the CLI, keeping the default workflow local-first while allowing current web evidence when needed.
 
@@ -75,6 +76,7 @@ Web search is opt-in through the CLI, keeping the default workflow local-first w
 - Tavily web search provider
 - Same-domain web crawling with configurable page limits
 - Opt-in web search through the CLI
+- Optional HTTP source verification for web search results
 - Overlapping chunking with source metadata
 - Dense semantic retrieval
 - BM25 lexical retrieval
@@ -217,6 +219,14 @@ You can expand the query into additional LLM-generated search queries before ret
 
 Query expansion requires a configured LLM and performs an additional LLM call before retrieval.
 
+### 9. Verify web sources
+
+You can verify web search results before they are included in the evidence:
+
+    research-assistant ask "What is RAG?" --web --verify-sources
+
+Source verification performs HTTP requests to check whether web sources are reachable.
+
 ## Included example
 
 The repository contains a tiny sample corpus in data/sample/.
@@ -244,6 +254,7 @@ The repository contains a tiny sample corpus in data/sample/.
     |   +-- web_search.py           # Web search provider abstraction and Tavily implementation
     |   +-- crawler.py              # Same-domain web crawling
     |   +-- query_expansion.py      # Query expansion strategies
+    |   +-- source_verification.py  # Web source verification strategies
     +-- tests/
     |   +-- test_bm25.py
     |   +-- test_chunking.py
@@ -259,6 +270,7 @@ The repository contains a tiny sample corpus in data/sample/.
     |   +-- test_web_search.py
     |   +-- test_crawler.py
     |   +-- test_query_expansion.py
+    |   +-- test_source_verification.py
     +-- .env.example
     +-- .gitignore
     +-- pyproject.toml

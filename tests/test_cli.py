@@ -402,6 +402,70 @@ def test_ask_with_web_enables_web_search(monkeypatch):
 		"use_web_search": True,
 	}
 
+def test_ask_with_verify_sources_enables_source_verification(monkeypatch):
+        pipeline_args = {}
+        ask_args = {}
+
+        class FakePipeline:
+                def __init__(self, **kwargs):
+                        pipeline_args.update(kwargs)
+
+                def load_index(self):
+                        return 1
+
+                def ask(
+                        self,
+                        question,
+                        top_k=8,
+                        use_web_search=False,
+                        verify_sources=False,
+                ):
+                        ask_args.update(
+                                question=question,
+                                top_k=top_k,
+                                use_web_search=use_web_search,
+                                verify_sources=verify_sources,
+                        )
+                        return "answer"
+
+        class FakeWebSearchProvider:
+                pass
+
+        monkeypatch.setattr(
+                "research_assistant.cli.ResearchPipeline",
+                FakePipeline,
+        )
+        monkeypatch.setattr(
+                "research_assistant.cli.TavilySearchProvider",
+                FakeWebSearchProvider,
+        )
+        monkeypatch.setattr(
+                "research_assistant.cli.HttpSourceVerifier",
+                lambda: "fake-verifier",
+        )
+        monkeypatch.setattr(
+                "sys.argv",
+                [
+                        "research-assistant",
+                        "ask",
+                        "What is RAG?",
+                        "--web",
+                        "--verify-sources",
+                ],
+        )
+
+        from research_assistant.cli import main
+
+        main()
+
+        assert pipeline_args["source_verifier"] == "fake-verifier"
+        assert ask_args == {
+                "question": "What is RAG?",
+                "top_k": 8,
+                "use_web_search": True,
+                "verify_sources": True,
+        }
+
 def test_ask_without_web_disables_web_search(monkeypatch):
 	pipeline_args = {}
 	ask_args = {}

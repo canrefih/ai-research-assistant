@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from .pipeline import ResearchPipeline
 from .web_search import TavilySearchProvider
 from .query_expansion import LLMQueryExpander
+from .source_verification import HttpSourceVerifier
 
 
 def main() -> None:
@@ -53,6 +54,11 @@ def main() -> None:
         "--query-expansion",
         action="store_true",
         help="Expand the query before retrieval",
+    )
+    ask.add_argument(
+        "--verify-sources",
+        action="store_true",
+        help="Verify the validity of web search results",
     )
 
     index_url = sub.add_parser(
@@ -137,6 +143,9 @@ def main() -> None:
             if args.query_expansion:
                 pipeline_kwargs["query_expander"] = LLMQueryExpander()
 
+            if args.verify_sources:
+                pipeline_kwargs["source_verifier"] = HttpSourceVerifier()
+
             pipeline = ResearchPipeline(**pipeline_kwargs)
 
             count = pipeline.load_index()
@@ -148,6 +157,9 @@ def main() -> None:
 
             if args.query_expansion:
                 ask_kwargs["use_query_expansion"] = True
+
+            if args.verify_sources:
+                ask_kwargs["verify_sources"] = True
 
             print(
                 pipeline.ask(

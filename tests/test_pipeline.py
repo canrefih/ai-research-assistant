@@ -1,6 +1,7 @@
 from research_assistant.models import DocumentChunk, SearchResult
 from research_assistant.pipeline import ResearchPipeline
 from research_assistant.vector_store import QdrantVectorStore
+from research_assistant.models import WebSearchResult
 
 import pytest
 import numpy as np
@@ -1232,3 +1233,144 @@ def test_pipeline_query_expansion_requires_expander():
             "original query",
             use_query_expansion=True,
         )
+
+
+def test_pipeline_source_verification_requires_verifier():
+    pipeline = ResearchPipeline.__new__(ResearchPipeline)
+    pipeline.source_verifier = None
+
+    with pytest.raises(
+        ValueError,
+        match="source verifier is not configured",
+    ):
+        pipeline.ask(
+            "original query",
+            verify_sources=True,
+        )
+
+
+def test_pipeline_filters_unverified_web_sources(monkeypatch):
+    class FakeRetriever:
+        def search(
+            self,
+            query,
+            top_k,
+            metadata_filter=None,
+        ):
+            return []
+
+    class FakeBM25:
+        def search(
+            self,
+            query,
+            top_k,
+            metadata_filter=None,
+        ):
+            return []
+
+    class FakeVerifier:
+        def verify(self, source):
+            return type(
+                "VerificationResult",
+                (),
+                {"is_valid": source.url == "https://valid.example.com"},
+            )()
+
+    class FakeWebProvider:
+        def search(self, query, top_k=5):
+            return [
+                WebSearchResult(
+                    title="Valid",
+                    url="https://valid.example.com",
+                    snippet="valid content",
+                ),
+                WebSearchResult(
+                    title="Invalid",
+                    url="https://invalid.example.com",
+                    snippet="invalid content",
+                ),
+            ]
+
+    class FakeLLM:
+        def answer(self, question, evidence):
+            assert "https://valid.example.com" in evidence
+            assert "https://invalid.example.com" not in evidence
+            return "answer"
+
+    pipeline = ResearchPipeline.__new__(ResearchPipeline)
+    pipeline.retriever = FakeRetriever()
+    pipeline.bm25_retriever = FakeBM25()
+    pipeline.reranker = None
+    pipeline.llm = FakeLLM()
+    pipeline.web_search_provider = FakeWebProvider()
+    pipeline.source_verifier = FakeVerifier()
+    pipeline.query_expander = None
+
+    monkeypatch.setattr(
+        "research_assistant.pipeline.reciprocal_rank_fusion",
+        lambda result_lists, top_k: [],
+    )
+
+    assert pipeline.ask(
+        "original query",
+        use_web_search=True,
+        verify_sources=True,
+    ) == "answer"
+
+
+def test_pipeline_does_not_verify_sources_by_default(monkeypatch):
+    class FakeRetriever:
+        def search(
+            self,
+            query,
+            top_k,
+            metadata_filter=None,
+        ):
+            return []
+
+    class FakeBM25:
+        def search(
+            self,
+            query,
+            top_k,
+            metadata_filter=None,
+        ):
+            return []
+
+    class FakeVerifier:
+        def verify(self, source):
+            raise AssertionError("source verifier should not be called")
+
+    class FakeWebProvider:
+        def search(self, query, top_k=5):
+            return [
+                WebSearchResult(
+                    title="Example",
+                    url="https://example.com",
+                    snippet="content",
+                ),
+            ]
+
+    class FakeLLM:
+        def answer(self, question, evidence):
+            assert "https://example.com" in evidence
+            return "answer"
+
+    pipeline = ResearchPipeline.__new__(ResearchPipeline)
+    pipeline.retriever = FakeRetriever()
+    pipeline.bm25_retriever = FakeBM25()
+    pipeline.reranker = None
+    pipeline.llm = FakeLLM()
+    pipeline.web_search_provider = FakeWebProvider()
+    pipeline.source_verifier = FakeVerifier()
+    pipeline.query_expander = None
+
+    monkeypatch.setattr(
+        "research_assistant.pipeline.reciprocal_rank_fusion",
+        lambda result_lists, top_k: [],
+    )
+
+    assert pipeline.ask(
+        "original query",
+        use_web_search=True,
+    ) == "answer"

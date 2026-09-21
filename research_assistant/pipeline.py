@@ -13,6 +13,7 @@ from .retrieval import (
 )
 from .storage import IndexStore, IndexStoreProtocol
 from .web_search import WebSearchProvider
+from .source_verification import SourceVerifier
 
 
 class ResearchPipeline:
@@ -26,6 +27,7 @@ class ResearchPipeline:
         vector_store: VectorStoreProtocol | None = None,
         web_search_provider: WebSearchProvider | None = None,
         query_expander: QueryExpander | None = None,
+        source_verifier: SourceVerifier | None = None,
     ):
         self.retriever = SemanticRetriever(
             model_name=embedding_model,
@@ -42,7 +44,7 @@ class ResearchPipeline:
         self.store = store or IndexStore(index_dir)
         self.web_search_provider = web_search_provider
         self.query_expander = query_expander
-
+        self.source_verifier = source_verifier
     def index(self, directory: str | Path) -> int:
         chunks = load_directory(directory)
         if not chunks:
@@ -123,6 +125,7 @@ class ResearchPipeline:
         metadata_filter: dict[str, str] | None = None,
         use_web_search: bool = False,
         use_query_expansion: bool = False,
+        verify_sources: bool = False,
     ) -> str:
         if not question.strip():
             raise ValueError("question must not be empty")
@@ -130,6 +133,8 @@ class ResearchPipeline:
             raise ValueError("top_k must be at least 1")
         if use_query_expansion and self.query_expander is None:
             raise ValueError("query expander is not configured")
+        if verify_sources and self.source_verifier is None:
+            raise ValueError("source verifier is not configured")
 
         queries = [question]
 
@@ -178,6 +183,13 @@ class ResearchPipeline:
                 question,
                 top_k=top_k,
             )
+
+            if verify_sources:
+                web_results = [
+                    result
+                    for result in web_results
+                    if self.source_verifier.verify(result).is_valid
+                ]
 
             start_index = len(evidence_parts) + 1
 
