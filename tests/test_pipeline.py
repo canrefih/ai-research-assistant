@@ -1013,3 +1013,53 @@ def test_index_url(monkeypatch):
     pipeline.store = FakeStore()
 
     assert pipeline.index_url("https://example.com") == 1
+
+
+from research_assistant.models import WebSearchResult
+from research_assistant.web_search import WebSearchProvider
+
+
+class FakeWebSearchProvider(WebSearchProvider):
+    def __init__(self):
+        self.calls = []
+
+    def search(self, query: str, top_k: int = 5):
+        self.calls.append((query, top_k))
+        return [
+            WebSearchResult(
+                title="Test result",
+                url="https://example.com",
+                snippet="Test snippet",
+            )
+        ]
+
+
+def test_pipeline_search_web_uses_provider():
+    provider = FakeWebSearchProvider()
+    pipeline = ResearchPipeline(
+        use_reranker=False,
+        web_search_provider=provider,
+    )
+
+    results = pipeline.search_web(
+        "retrieval augmented generation",
+        top_k=3,
+    )
+
+    assert results == [
+        WebSearchResult(
+            title="Test result",
+            url="https://example.com",
+            snippet="Test snippet",
+        )
+    ]
+    assert provider.calls == [
+        ("retrieval augmented generation", 3)
+    ]
+
+
+def test_pipeline_search_web_requires_provider():
+    pipeline = ResearchPipeline(use_reranker=False)
+
+    with pytest.raises(ValueError, match="web search provider is not configured"):
+        pipeline.search_web("test")
