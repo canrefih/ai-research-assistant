@@ -1,5 +1,6 @@
 import numpy as np
 import re
+from .vector_store import VectorStoreProtocol
 from sentence_transformers import CrossEncoder, SentenceTransformer
 
 from .models import DocumentChunk, SearchResult
@@ -176,15 +177,19 @@ class BM25Retriever:
 
 
 class SemanticRetriever:
-    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+    def __init__(
+        self,
+        model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+        vector_store: VectorStoreProtocol | None = None,
+    ):
         self.model = SentenceTransformer(model_name)
+        self.vector_store = vector_store
         self.chunks: list[DocumentChunk] = []
         self.embeddings: np.ndarray | None = None
 
     def fit(self, chunks: list[DocumentChunk]) -> None:
         if not chunks:
             raise ValueError("Cannot index an empty document collection")
-
         self.chunks = chunks
         texts = [c.text for c in chunks]
         embeddings = self.model.encode(
@@ -192,11 +197,14 @@ class SemanticRetriever:
             normalize_embeddings=True,
             convert_to_numpy=True,
         )
-
         if embeddings.ndim != 2:
             raise ValueError("embeddings must be a 2-dimensional array")
 
-        self.embeddings = embeddings
+        if self.vector_store is not None:
+            self.vector_store.upsert(chunks, embeddings)
+            self.embeddings = None
+        else:
+            self.embeddings = embeddings
 
     def load(self, chunks: list[DocumentChunk], embeddings: np.ndarray) -> None:
         if len(chunks) != len(embeddings):
@@ -220,7 +228,7 @@ class SemanticRetriever:
         top_k: int = 8,
         metadata_filter: dict[str, str] | None = None,
     ) -> list[SearchResult]:
-        if self.embeddings is None:
+        if self.vector_store is None and self.embeddings is None:
             raise RuntimeError("Retriever is not fitted")
         if not query.strip():
             raise ValueError("query must not be empty")
@@ -232,18 +240,23 @@ class SemanticRetriever:
             normalize_embeddings=True,
             convert_to_numpy=True,
         )
-
         if query_embeddings.ndim != 2 or query_embeddings.shape[0] != 1:
-            raise ValueError(
-                "query embedding must contain exactly one vector"
-            )
+            raise ValueError("query embedding must contain exactly one vector")
 
         q = query_embeddings[0]
-
         if q.ndim != 1:
-            raise ValueError(
-                "query embedding must be a 1-dimensional vector"
+            raise ValueError("query embedding must be a 1-dimensional vector")
+
+        if self.vector_store is not None:
+            results = self.vector_store.search(
+                q,
+                top_k=top_k,
+                metadata_filter=metadata_filter,
             )
+            return [
+                SearchResult(chunk=chunk, score=float(score))
+                for chunk, score in results
+            ]
 
         scores = self.embeddings @ q
 

@@ -3,6 +3,7 @@ import pytest
 
 from research_assistant.models import DocumentChunk
 from research_assistant.retrieval import SemanticRetriever
+from research_assistant.vector_store import QdrantVectorStore
 
 
 class FakeEmbeddingModel:
@@ -414,3 +415,247 @@ def test_semantic_retriever_requires_all_metadata_filters(monkeypatch):
     )
 
     assert [result.chunk.chunk_id for result in results] == ["python-tr:0"]
+
+
+def test_semantic_retriever_can_use_vector_store(monkeypatch):
+    chunks = [
+        DocumentChunk(
+            chunk_id="python:0",
+            source="python.md",
+            text="Python programming",
+        ),
+    ]
+
+    class FakeModel:
+        def encode(
+            self,
+            texts,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+        ):
+            return np.array([[1.0, 0.0]], dtype=np.float32)
+
+    class FakeVectorStore:
+        def __init__(self):
+            self.chunks = None
+            self.embeddings = None
+            self.query_embedding = None
+            self.top_k = None
+            self.metadata_filter = None
+
+        def upsert(self, chunks, embeddings):
+            self.chunks = chunks
+            self.embeddings = embeddings
+
+        def search(
+            self,
+            query_embedding,
+            top_k,
+            metadata_filter=None,
+        ):
+            self.query_embedding = query_embedding
+            self.top_k = top_k
+            self.metadata_filter = metadata_filter
+
+            return [(self.chunks[0], 0.95)]
+
+    monkeypatch.setattr(
+        "research_assistant.retrieval.SentenceTransformer",
+        lambda model_name: FakeModel(),
+    )
+
+    vector_store = FakeVectorStore()
+    retriever = SemanticRetriever(
+        vector_store=vector_store,
+    )
+
+    retriever.fit(chunks)
+
+    results = retriever.search(
+        "Python",
+        top_k=3,
+        metadata_filter={"topic": "python"},
+    )
+
+    assert results[0].chunk == chunks[0]
+    assert results[0].score == 0.95
+    assert vector_store.chunks == chunks
+    assert np.array_equal(
+        vector_store.embeddings,
+        np.array([[1.0, 0.0]], dtype=np.float32),
+    )
+    assert np.array_equal(
+        vector_store.query_embedding,
+        np.array([1.0, 0.0], dtype=np.float32),
+    )
+    assert vector_store.top_k == 3
+    assert vector_store.metadata_filter == {"topic": "python"}
+
+
+def test_semantic_retriever_can_use_qdrant_vector_store(tmp_path, monkeypatch):
+    chunks = [
+        DocumentChunk(
+            chunk_id="python:0",
+            source="python.md",
+            text="Python programming",
+            metadata={"topic": "python"},
+        ),
+        DocumentChunk(
+            chunk_id="java:0",
+            source="java.md",
+            text="Java programming",
+            metadata={"topic": "java"},
+        ),
+    ]
+
+    class FakeModel:
+        def encode(
+            self,
+            texts,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+        ):
+            if len(texts) == 1:
+                return np.array([[1.0, 0.0]], dtype=np.float32)
+
+            return np.array(
+                [
+                    [1.0, 0.0],
+                    [0.0, 1.0],
+                ],
+                dtype=np.float32,
+            )
+
+        def get_embedding_dimension(self):
+            return 2
+
+    monkeypatch.setattr(
+        "research_assistant.retrieval.SentenceTransformer",
+        lambda model_name: FakeModel(),
+    )
+
+    vector_store = QdrantVectorStore(tmp_path / "qdrant")
+    retriever = SemanticRetriever(vector_store=vector_store)
+
+    retriever.fit(chunks)
+
+    results = retriever.search(
+        "Python",
+        top_k=1,
+        metadata_filter={"topic": "python"},
+    )
+
+    assert len(results) == 1
+    assert results[0].chunk == chunks[0]
+    assert results[0].score > 0.9
+
+    vector_store.close()
+
+
+def test_semantic_retriever_can_search_qdrant_without_loaded_embeddings(
+    tmp_path,
+    monkeypatch,
+):
+    chunks = [
+        DocumentChunk(
+            chunk_id="python:0",
+            source="python.md",
+            text="Python programming",
+        ),
+        DocumentChunk(
+            chunk_id="java:0",
+            source="java.md",
+            text="Java programming",
+        ),
+    ]
+
+    class FakeModel:
+        def encode(
+            self,
+            texts,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+        ):
+            return np.array([[1.0, 0.0]], dtype=np.float32)
+
+    monkeypatch.setattr(
+        "research_assistant.retrieval.SentenceTransformer",
+        lambda model_name: FakeModel(),
+    )
+
+    vector_store = QdrantVectorStore(tmp_path / "qdrant")
+
+    vector_store.upsert(
+        chunks,
+        np.array(
+            [
+                [1.0, 0.0],
+                [0.0, 1.0],
+            ],
+            dtype=np.float32,
+        ),
+    )
+
+    retriever = SemanticRetriever(vector_store=vector_store)
+    retriever.chunks = chunks
+    retriever.embeddings = None
+
+    results = retriever.search(
+        "Python",
+        top_k=1,
+    )
+
+    assert len(results) == 1
+    assert results[0].chunk == chunks[0]
+
+    vector_store.close()
+
+
+def test_semantic_retriever_does_not_keep_embeddings_with_vector_store(
+    tmp_path,
+    monkeypatch,
+):
+    class FakeModel:
+        def encode(
+            self,
+            texts,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+        ):
+            return np.array(
+                [
+                    [1.0, 0.0],
+                    [0.0, 1.0],
+                ],
+                dtype=np.float32,
+            )
+
+        def get_embedding_dimension(self):
+            return 2
+
+    monkeypatch.setattr(
+        "research_assistant.retrieval.SentenceTransformer",
+        lambda model_name: FakeModel(),
+    )
+
+    vector_store = QdrantVectorStore(tmp_path / "qdrant")
+
+    chunks = [
+        DocumentChunk(
+            chunk_id="1",
+            source="a.md",
+            text="Python",
+        ),
+        DocumentChunk(
+            chunk_id="2",
+            source="b.md",
+            text="Java",
+        ),
+    ]
+
+    retriever = SemanticRetriever(vector_store=vector_store)
+    retriever.fit(chunks)
+
+    assert retriever.embeddings is None
+
+    vector_store.close()

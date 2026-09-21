@@ -9,7 +9,7 @@ The project implements a practical hybrid retrieval and reranking pipeline:
 1. Ingest Markdown/text documents and preserve their source paths.
 2. Split documents into overlapping chunks.
 3. Create dense embeddings with Sentence Transformers.
-4. Persist chunks and embeddings to a local index.
+4. Persist chunks and embeddings to either a local NumPy index or Qdrant.
 5. Retrieve candidates using both dense semantic search and BM25.
 6. Combine retrieval results with reciprocal rank fusion.
 7. Optionally rerank candidates with a CrossEncoder.
@@ -28,26 +28,28 @@ This keeps the core small while leaving clear extension points for web search, e
         v
     Sentence Transformer embeddings
         |
-        v
-    Persistent local index
-        |
-        v
-    Dense + BM25 retrieval
-        |
-        v
-    Reciprocal rank fusion
-        |
-        v
-    Optional CrossEncoder reranking
-        |
-        v
-    Evidence context
-        |
-        v
-    OpenAI-compatible LLM
-        |
-        v
-    Answer + source citations
+        +----------------------+
+        |                      |
+        v                      v
+    Vector store           BM25 index
+    (NumPy / Qdrant)           |
+        |                      |
+        +----------+-----------+
+                   |
+                   v
+        Reciprocal rank fusion
+                   |
+                   v
+        Optional CrossEncoder reranking
+                   |
+                   v
+            Evidence context
+                   |
+                   v
+        OpenAI-compatible LLM
+                   |
+                   v
+        Answer + source citations
 
 ## Features
 
@@ -57,7 +59,9 @@ This keeps the core small while leaving clear extension points for web search, e
 - BM25 lexical retrieval
 - Hybrid dense + BM25 retrieval with reciprocal rank fusion
 - Optional CrossEncoder reranking
-- Persistent local NumPy-based index
+- Persistent local NumPy index
+- Qdrant vector store with local persistence
+- Metadata filtering across dense and lexical retrieval
 - OpenAI-compatible LLM endpoint
 - Citation-oriented evidence formatting
 - CLI interface
@@ -172,6 +176,7 @@ The repository contains a tiny sample corpus in data/sample/.
     |   +-- pipeline.py             # End-to-end orchestration
     |   +-- retrieval.py            # Dense, BM25, fusion, and reranking
     |   +-- storage.py              # Local index persistence
+    |   +-- vector_store.py            # Vector-store protocol and Qdrant backend
     +-- tests/
     |   +-- test_bm25.py
     |   +-- test_chunking.py
@@ -182,6 +187,7 @@ The repository contains a tiny sample corpus in data/sample/.
     |   +-- test_retrieval.py
     |   +-- test_reranker.py
     |   +-- test_storage.py
+    |   +-- test_vector_store.py
     +-- .env.example
     +-- .gitignore
     +-- pyproject.toml
@@ -191,7 +197,7 @@ The repository contains a tiny sample corpus in data/sample/.
 
 ### Why hybrid retrieval?
 
-Dense retrieval captures semantic similarity, while BM25 provides a strong lexical matching signal. Combining both result lists with reciprocal rank fusion improves retrieval robustness without requiring a separate vector database.
+Dense retrieval captures semantic similarity, while BM25 provides a strong lexical matching signal. Combining both result lists with reciprocal rank fusion improves retrieval robustness. Dense retrieval can use the lightweight local NumPy backend or Qdrant when a scalable vector-store architecture is needed.
 
 ### Why retrieve + rerank?
 
@@ -200,6 +206,8 @@ Dense and lexical retrieval efficiently produce a candidate set. A CrossEncoder 
 ### Why persist the index?
 
 Embedding an entire corpus can be much more expensive than embedding one query. Persisting chunks and embeddings makes the tool reusable instead of rebuilding its index for every question.
+
+The default local NumPy backend keeps the project lightweight, while Qdrant provides a persistent vector-store backend for larger corpora and future deployment scenarios.
 
 ### Why OpenAI-compatible?
 
@@ -210,11 +218,11 @@ The LLM layer targets the common chat-completions interface rather than hard-cod
 This is an early-stage research/RAG project, not a production platform.
 
 - Only .md and .txt files are ingested.
-- The index is a local NumPy-based store.
+- The default CLI workflow uses the local NumPy index; Qdrant is available as a vector-store backend.
+- Qdrant is currently used with local persistence; Docker/cloud deployment configuration is not yet included.
 - Citations are source labels supplied to the LLM, not independently verified claims.
 - There is no web search or crawling layer.
 - There is no retrieval/answer evaluation harness yet.
-- Very large corpora will eventually need a scalable vector index.
 
 These limitations are intentional extension points.
 
@@ -222,10 +230,10 @@ These limitations are intentional extension points.
 
 ### Retrieval
 - [x] Hybrid BM25 + dense retrieval
-- [ ] Metadata filtering
-- [ ] Document deduplication
-- [ ] Configurable embedding/reranker models
-- [ ] Scalable vector database backend
+- [x] Metadata filtering
+- [x] Document deduplication
+- [x] Configurable embedding/reranker models
+- [x] Qdrant vector database backend
 
 ### Research workflow
 - [ ] PDF ingestion

@@ -1,4 +1,5 @@
 from pathlib import Path
+from .vector_store import VectorStoreProtocol
 
 from .ingestion import load_directory
 from .llm import LLMClient
@@ -19,10 +20,13 @@ class ResearchPipeline:
         embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
         reranker_model: str = "cross-encoder/ms-marco-MiniLM-L6-v2",
         store: IndexStoreProtocol | None = None,
+        vector_store: VectorStoreProtocol | None = None,
     ):
         self.retriever = SemanticRetriever(
             model_name=embedding_model,
+            vector_store=vector_store,
         )
+        self.vector_store = vector_store
         self.bm25_retriever = BM25Retriever()
         self.reranker = (
             Reranker(model_name=reranker_model)
@@ -38,14 +42,26 @@ class ResearchPipeline:
             raise ValueError(f"No .md or .txt documents found in {directory}")
         self.retriever.fit(chunks)
         self.bm25_retriever.fit(chunks)
-        self.store.save(chunks, self.retriever.embeddings)
+
+        if self.vector_store is None:
+            self.store.save(chunks, self.retriever.embeddings)
+
         return len(chunks)
 
     def load_index(self) -> int:
+        if self.vector_store is not None:
+            chunks = self.vector_store.load_chunks()
+            self.bm25_retriever.fit(chunks)
+            return len(chunks)
+
         chunks, embeddings = self.store.load()
         self.retriever.load(chunks, embeddings)
         self.bm25_retriever.fit(chunks)
         return len(chunks)
+
+    def close(self) -> None:
+        if self.vector_store is not None:
+            self.vector_store.close()
 
     def ask(
         self,
