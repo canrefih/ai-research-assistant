@@ -413,11 +413,18 @@ def test_ask_without_web_disables_web_search(monkeypatch):
 		def load_index(self):
 			return 1
 
-		def ask(self, question, top_k=8, use_web_search=False):
+		def ask(
+			self,
+			question,
+			top_k=8,
+			use_web_search=False,
+			use_query_expansion=False,
+		):
 			ask_args.update(
 				question=question,
 				top_k=top_k,
 				use_web_search=use_web_search,
+				use_query_expansion=use_query_expansion,
 			)
 			return "answer"
 
@@ -443,6 +450,7 @@ def test_ask_without_web_disables_web_search(monkeypatch):
 		"question": "What is RAG?",
 		"top_k": 8,
 		"use_web_search": False,
+		"use_query_expansion": False,
 	}
 
 
@@ -492,3 +500,66 @@ def test_cli_crawl_url(monkeypatch, capsys):
         "Crawled 3 chunks from https://example.com "
         "into data/index."
     ) in captured.out
+
+
+def test_ask_with_query_expansion_enables_expansion(monkeypatch):
+	pipeline_args = {}
+	ask_args = {}
+
+	class FakeExpander:
+		pass
+
+	class FakePipeline:
+		def __init__(self, **kwargs):
+			pipeline_args.update(kwargs)
+
+		def load_index(self):
+			return 2
+
+		def ask(
+			self,
+			question,
+			top_k=8,
+			use_web_search=False,
+			use_query_expansion=False,
+		):
+			ask_args.update(
+				question=question,
+				top_k=top_k,
+				use_web_search=use_web_search,
+				use_query_expansion=use_query_expansion,
+			)
+			return "answer"
+
+	monkeypatch.setattr(
+		"research_assistant.cli.ResearchPipeline",
+		FakePipeline,
+	)
+	monkeypatch.setattr(
+		"research_assistant.cli.LLMQueryExpander",
+		FakeExpander,
+	)
+	monkeypatch.setattr(
+		"sys.argv",
+		[
+			"research-assistant",
+			"ask",
+			"What is RAG?",
+			"--query-expansion",
+		],
+	)
+
+	from research_assistant.cli import main
+
+	main()
+
+	assert isinstance(
+		pipeline_args["query_expander"],
+		FakeExpander,
+	)
+	assert ask_args == {
+		"question": "What is RAG?",
+		"top_k": 8,
+		"use_web_search": False,
+		"use_query_expansion": True,
+	}

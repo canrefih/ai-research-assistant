@@ -1,4 +1,6 @@
 from pathlib import Path
+
+from research_assistant.query_expansion import QueryExpander
 from .vector_store import VectorStoreProtocol
 
 from .ingestion import load_directory, load_url
@@ -23,6 +25,7 @@ class ResearchPipeline:
         store: IndexStoreProtocol | None = None,
         vector_store: VectorStoreProtocol | None = None,
         web_search_provider: WebSearchProvider | None = None,
+        query_expander: QueryExpander | None = None,
     ):
         self.retriever = SemanticRetriever(
             model_name=embedding_model,
@@ -38,6 +41,7 @@ class ResearchPipeline:
         self.llm = LLMClient()
         self.store = store or IndexStore(index_dir)
         self.web_search_provider = web_search_provider
+        self.query_expander = query_expander
 
     def index(self, directory: str | Path) -> int:
         chunks = load_directory(directory)
@@ -118,26 +122,42 @@ class ResearchPipeline:
         top_k: int = 8,
         metadata_filter: dict[str, str] | None = None,
         use_web_search: bool = False,
+        use_query_expansion: bool = False,
     ) -> str:
         if not question.strip():
             raise ValueError("question must not be empty")
         if top_k < 1:
             raise ValueError("top_k must be at least 1")
+        if use_query_expansion and self.query_expander is None:
+            raise ValueError("query expander is not configured")
 
-        dense_results = self.retriever.search(
-            question,
-            top_k=top_k,
-            metadata_filter=metadata_filter,
-        )
+        queries = [question]
 
-        bm25_results = self.bm25_retriever.search(
-            question,
-            top_k=top_k,
-            metadata_filter=metadata_filter,
-        )
+        if use_query_expansion:
+            queries.extend(
+                self.query_expander.expand(question)
+            )
+
+        dense_results = [
+            self.retriever.search(
+                query,
+                top_k=top_k,
+                metadata_filter=metadata_filter,
+            )
+            for query in queries
+        ]
+
+        bm25_results = [
+            self.bm25_retriever.search(
+                query,
+                top_k=top_k,
+                metadata_filter=metadata_filter,
+            )
+            for query in queries
+        ]
 
         results = reciprocal_rank_fusion(
-            [dense_results, bm25_results],
+            dense_results + bm25_results,
             top_k=top_k,
         )
 

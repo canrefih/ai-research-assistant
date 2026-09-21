@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from .pipeline import ResearchPipeline
 from .web_search import TavilySearchProvider
+from .query_expansion import LLMQueryExpander
 
 
 def main() -> None:
@@ -47,6 +48,11 @@ def main() -> None:
         "--web",
         action="store_true",
         help="Include web search results in the evidence",
+    )
+    ask.add_argument(
+        "--query-expansion",
+        action="store_true",
+        help="Expand the query before retrieval",
     )
 
     index_url = sub.add_parser(
@@ -128,15 +134,25 @@ def main() -> None:
             if args.web:
                 pipeline_kwargs["web_search_provider"] = TavilySearchProvider()
 
+            if args.query_expansion:
+                pipeline_kwargs["query_expander"] = LLMQueryExpander()
+
             pipeline = ResearchPipeline(**pipeline_kwargs)
 
             count = pipeline.load_index()
             print(f"Loaded {count} chunks from {args.index_dir}.")
+            ask_kwargs = {
+                "top_k": args.top_k,
+                "use_web_search": args.web,
+            }
+
+            if args.query_expansion:
+                ask_kwargs["use_query_expansion"] = True
+
             print(
                 pipeline.ask(
                     args.question,
-                    top_k=args.top_k,
-                    use_web_search=args.web,
+                    **ask_kwargs,
                 )
             )
 

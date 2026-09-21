@@ -1130,3 +1130,105 @@ def test_crawl_url(monkeypatch):
         "https://example.com",
         max_pages=3,
     ) == 1
+
+
+def test_pipeline_uses_query_expander():
+    calls = []
+
+    class FakeExpander:
+        def expand(self, query):
+            calls.append(query)
+            return [
+                "expanded query one",
+                "expanded query two",
+            ]
+
+    pipeline = ResearchPipeline.__new__(ResearchPipeline)
+    pipeline.query_expander = FakeExpander()
+
+    assert pipeline.query_expander.expand("original query") == [
+        "expanded query one",
+        "expanded query two",
+    ]
+
+    assert calls == ["original query"]
+
+
+def test_pipeline_query_expansion_searches_all_queries(monkeypatch):
+    dense_calls = []
+    bm25_calls = []
+
+    class FakeExpander:
+        def expand(self, query):
+            assert query == "original query"
+            return [
+                "expanded query one",
+                "expanded query two",
+            ]
+
+    class FakeRetriever:
+        def search(
+            self,
+            query,
+            top_k,
+            metadata_filter=None,
+        ):
+            dense_calls.append(query)
+            return []
+
+    class FakeBM25:
+        def search(
+            self,
+            query,
+            top_k,
+            metadata_filter=None,
+        ):
+            bm25_calls.append(query)
+            return []
+
+    class FakeLLM:
+        def answer(self, question, evidence):
+            return "answer"
+
+    pipeline = ResearchPipeline.__new__(ResearchPipeline)
+    pipeline.query_expander = FakeExpander()
+    pipeline.retriever = FakeRetriever()
+    pipeline.bm25_retriever = FakeBM25()
+    pipeline.reranker = None
+    pipeline.llm = FakeLLM()
+
+    monkeypatch.setattr(
+        "research_assistant.pipeline.reciprocal_rank_fusion",
+        lambda result_lists, top_k: [],
+    )
+
+    assert pipeline.ask(
+        "original query",
+        use_query_expansion=True,
+    ) == "answer"
+
+    assert dense_calls == [
+        "original query",
+        "expanded query one",
+        "expanded query two",
+    ]
+
+    assert bm25_calls == [
+        "original query",
+        "expanded query one",
+        "expanded query two",
+    ]
+
+
+def test_pipeline_query_expansion_requires_expander():
+    pipeline = ResearchPipeline.__new__(ResearchPipeline)
+    pipeline.query_expander = None
+
+    with pytest.raises(
+        ValueError,
+        match="query expander is not configured",
+    ):
+        pipeline.ask(
+            "original query",
+            use_query_expansion=True,
+        )

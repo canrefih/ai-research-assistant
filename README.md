@@ -15,8 +15,9 @@ The project implements a practical hybrid retrieval and reranking pipeline:
 7. Combine retrieval results with reciprocal rank fusion.
 8. Optionally rerank candidates with a CrossEncoder.
 9. Optionally augment local evidence with Tavily web search results.
-10. Send the collected evidence to an OpenAI-compatible chat endpoint.
-11. Ask the model to cite the supplied sources as [1], [2], etc.
+10. Expands queries with LLM-generated alternative search queries
+11. Send the collected evidence to an OpenAI-compatible chat endpoint.
+12. Ask the model to cite the supplied sources as [1], [2], etc.
 
 Web search is opt-in through the CLI, keeping the default workflow local-first while allowing current web evidence when needed.
 
@@ -82,6 +83,7 @@ Web search is opt-in through the CLI, keeping the default workflow local-first w
 - Persistent local NumPy index
 - Qdrant vector store with local persistence
 - Metadata filtering across dense and lexical retrieval
+- Optional LLM-based query expansion
 - OpenAI-compatible LLM endpoint
 - Citation-oriented evidence formatting
 - CLI interface
@@ -207,6 +209,14 @@ You can also choose a custom index directory:
 
     research-assistant crawl-url https://example.com --max-pages 10 --index-dir data/web-crawl
 
+### 8. Query expansion
+
+You can expand the query into additional LLM-generated search queries before retrieval:
+
+    research-assistant ask "What is RAG?" --query-expansion
+
+Query expansion requires a configured LLM and performs an additional LLM call before retrieval.
+
 ## Included example
 
 The repository contains a tiny sample corpus in data/sample/.
@@ -233,6 +243,7 @@ The repository contains a tiny sample corpus in data/sample/.
     |   +-- vector_store.py         # Vector-store protocol and Qdrant backend
     |   +-- web_search.py           # Web search provider abstraction and Tavily implementation
     |   +-- crawler.py              # Same-domain web crawling
+    |   +-- query_expansion.py      # Query expansion strategies
     +-- tests/
     |   +-- test_bm25.py
     |   +-- test_chunking.py
@@ -247,6 +258,7 @@ The repository contains a tiny sample corpus in data/sample/.
     |   +-- test_vector_store.py
     |   +-- test_web_search.py
     |   +-- test_crawler.py
+    |   +-- test_query_expansion.py
     +-- .env.example
     +-- .gitignore
     +-- pyproject.toml
@@ -298,7 +310,7 @@ These limitations are intentional extension points.
 - [x] Same-domain web crawling
 - [x] Tavily search integration into the research pipeline
 - [x] CLI web search option
-- [ ] Query expansion and multi-query retrieval
+- [x] Query expansion and multi-query retrieval
 - [ ] Source-level answer verification
 - [ ] Research report generation with bibliography
 
