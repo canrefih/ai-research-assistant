@@ -1,12 +1,13 @@
 from pathlib import Path
 
+from bs4 import BeautifulSoup
 from pypdf import PdfReader
 
 from .chunking import chunk_text
 from .models import DocumentChunk
 
 
-SUPPORTED = {".txt", ".md", ".pdf"}
+SUPPORTED = {".txt", ".md", ".pdf", ".html", ".htm"}
 
 
 def load_directory(directory: str | Path) -> list[DocumentChunk]:
@@ -19,6 +20,8 @@ def load_directory(directory: str | Path) -> list[DocumentChunk]:
             text = (
                 _read_pdf(path)
                 if path.suffix.lower() == ".pdf"
+                else _read_html(path)
+                if path.suffix.lower() in {".html", ".htm"}
                 else path.read_text(encoding="utf-8")
             )
 
@@ -44,3 +47,15 @@ def load_directory(directory: str | Path) -> list[DocumentChunk]:
 def _read_pdf(path: Path) -> str:
     reader = PdfReader(path)
     return "\n".join(page.extract_text() or "" for page in reader.pages)
+
+
+def _read_html(path: Path) -> str:
+    soup = BeautifulSoup(
+        path.read_text(encoding="utf-8"),
+        "html.parser",
+    )
+
+    for element in soup(["script", "style", "noscript"]):
+        element.decompose()
+
+    return soup.get_text(" ", strip=True)

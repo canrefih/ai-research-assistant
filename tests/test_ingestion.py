@@ -120,3 +120,54 @@ def test_load_directory_reads_pdf(tmp_path, monkeypatch):
         "source": "research.pdf",
         "file_type": "pdf",
     }
+
+
+def test_load_directory_reads_html_and_removes_non_content_elements(tmp_path):
+    document = tmp_path / "research.html"
+    document.write_text(
+        """
+        <html>
+            <head>
+                <title>Research</title>
+                <style>.hidden { display: none; }</style>
+                <script>alert("ignore me");</script>
+            </head>
+            <body>
+                <h1>Research Assistant</h1>
+                <p>Semantic retrieval is useful.</p>
+                <noscript>Fallback content</noscript>
+            </body>
+        </html>
+        """,
+        encoding="utf-8",
+    )
+
+    chunks = load_directory(tmp_path)
+
+    assert len(chunks) == 1
+    assert "Research Assistant" in chunks[0].text
+    assert "Semantic retrieval is useful." in chunks[0].text
+    assert "ignore me" not in chunks[0].text
+    assert "display: none" not in chunks[0].text
+    assert "Fallback content" not in chunks[0].text
+    assert chunks[0].metadata == {
+        "source": "research.html",
+        "file_type": "html",
+    }
+
+
+def test_load_directory_reads_htm(tmp_path):
+    document = tmp_path / "research.htm"
+    document.write_text(
+        "<html><body><h1>HTM research</h1></body></html>",
+        encoding="utf-8",
+    )
+
+    chunks = load_directory(tmp_path)
+
+    assert len(chunks) == 1
+    assert chunks[0].text == "HTM research"
+    assert chunks[0].metadata == {
+        "source": "research.htm",
+        "file_type": "htm",
+    }

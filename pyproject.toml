@@ -18,7 +18,8 @@ dependencies = [
   "sentence-transformers>=6.0",
   "scikit-learn>=1.5",
   "qdrant-client>=1.16",
-  "pypdf>=6.0"
+  "pypdf>=6.0",
+  "beautifulsoup4>=4.12"
 ]
 
 [project.optional-dependencies]
