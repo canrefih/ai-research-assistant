@@ -4,6 +4,7 @@ import requests
 from dotenv import load_dotenv
 
 from .pipeline import ResearchPipeline
+from .web_search import TavilySearchProvider
 
 
 def main() -> None:
@@ -41,6 +42,11 @@ def main() -> None:
         "--reranker-model",
         default="cross-encoder/ms-marco-MiniLM-L6-v2",
         help="CrossEncoder model used for reranking",
+    )
+    ask.add_argument(
+        "--web",
+        action="store_true",
+        help="Include web search results in the evidence",
     )
 
     index_url = sub.add_parser(
@@ -82,15 +88,27 @@ def main() -> None:
             print(f"Indexed {count} chunks from {args.url} into {args.index_dir}.")
 
         elif args.command == "ask":
-            pipeline = ResearchPipeline(
-                use_reranker=not args.no_reranker,
-                index_dir=args.index_dir,
-                embedding_model=args.embedding_model,
-                reranker_model=args.reranker_model,
-            )
+            pipeline_kwargs = {
+                "use_reranker": not args.no_reranker,
+                "index_dir": args.index_dir,
+                "embedding_model": args.embedding_model,
+                "reranker_model": args.reranker_model,
+            }
+
+            if args.web:
+                pipeline_kwargs["web_search_provider"] = TavilySearchProvider()
+
+            pipeline = ResearchPipeline(**pipeline_kwargs)
+
             count = pipeline.load_index()
             print(f"Loaded {count} chunks from {args.index_dir}.")
-            print(pipeline.ask(args.question, top_k=args.top_k))
+            print(
+                pipeline.ask(
+                    args.question,
+                    top_k=args.top_k,
+                    use_web_search=args.web,
+                )
+            )
 
     except (
         ValueError,

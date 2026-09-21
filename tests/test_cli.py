@@ -11,7 +11,7 @@ class FakePipeline:
     def load_index(self):
         return 2
 
-    def ask(self, question, top_k=8):
+    def ask(self, question, top_k=8, use_web_search=False):
         if top_k < 1:
             raise ValueError("top_k must be at least 1")
         return "fake answer"
@@ -133,7 +133,7 @@ def test_ask_handles_runtime_error(monkeypatch, capsys):
         def load_index(self):
             return 2
 
-        def ask(self, question, top_k=8):
+        def ask(self, question, top_k=8, use_web_search=False):
             raise RuntimeError("Retriever is not fitted")
 
     monkeypatch.setattr(
@@ -167,7 +167,7 @@ def test_ask_prints_loaded_count_and_answer(monkeypatch, capsys):
         def load_index(self):
             return 2
 
-        def ask(self, question, top_k=8):
+        def ask(self, question, top_k=8, use_web_search=False):
             assert question == "What is RAG?"
             assert top_k == 8
             return "fake answer"
@@ -198,7 +198,7 @@ def test_ask_passes_model_names_to_pipeline(monkeypatch):
         def load_index(self):
             return 1
 
-        def ask(self, question, top_k=8):
+        def ask(self, question, top_k=8, use_web_search=False):
             return "answer"
 
     monkeypatch.setattr(
@@ -346,3 +346,101 @@ def test_index_url_handles_request_error(monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert captured.err.strip() == "Error: request timed out"
+
+
+def test_ask_with_web_enables_web_search(monkeypatch):
+	pipeline_args = {}
+	ask_args = {}
+
+	class FakePipeline:
+		def __init__(self, **kwargs):
+			pipeline_args.update(kwargs)
+
+		def load_index(self):
+			return 1
+
+		def ask(self, question, top_k=8, use_web_search=False):
+			ask_args.update(
+				question=question,
+				top_k=top_k,
+				use_web_search=use_web_search,
+			)
+			return "answer"
+
+	class FakeWebSearchProvider:
+		pass
+
+	monkeypatch.setattr(
+		"research_assistant.cli.ResearchPipeline",
+		FakePipeline,
+	)
+	monkeypatch.setattr(
+		"research_assistant.cli.TavilySearchProvider",
+		FakeWebSearchProvider,
+	)
+	monkeypatch.setattr(
+		"sys.argv",
+		[
+			"research-assistant",
+			"ask",
+			"What is RAG?",
+			"--web",
+		],
+	)
+
+	from research_assistant.cli import main
+
+	main()
+
+	assert isinstance(
+		pipeline_args["web_search_provider"],
+		FakeWebSearchProvider,
+	)
+	assert ask_args == {
+		"question": "What is RAG?",
+		"top_k": 8,
+		"use_web_search": True,
+	}
+
+def test_ask_without_web_disables_web_search(monkeypatch):
+	pipeline_args = {}
+	ask_args = {}
+
+	class FakePipeline:
+		def __init__(self, **kwargs):
+			pipeline_args.update(kwargs)
+
+		def load_index(self):
+			return 1
+
+		def ask(self, question, top_k=8, use_web_search=False):
+			ask_args.update(
+				question=question,
+				top_k=top_k,
+				use_web_search=use_web_search,
+			)
+			return "answer"
+
+	monkeypatch.setattr(
+		"research_assistant.cli.ResearchPipeline",
+		FakePipeline,
+	)
+	monkeypatch.setattr(
+		"sys.argv",
+		[
+			"research-assistant",
+			"ask",
+			"What is RAG?",
+		],
+	)
+
+	from research_assistant.cli import main
+
+	main()
+
+	assert "web_search_provider" not in pipeline_args
+	assert ask_args == {
+		"question": "What is RAG?",
+		"top_k": 8,
+		"use_web_search": False,
+	}

@@ -13,10 +13,11 @@ The project implements a practical hybrid retrieval and reranking pipeline:
 5. Retrieve candidates using both dense semantic search and BM25.
 6. Combine retrieval results with reciprocal rank fusion.
 7. Optionally rerank candidates with a CrossEncoder.
-8. Send only the retrieved evidence to an OpenAI-compatible chat endpoint.
-9. Ask the model to cite the supplied sources as [1], [2], etc.
+8. Optionally augment local evidence with Tavily web search results.
+9. Send the collected evidence to an OpenAI-compatible chat endpoint.
+10. Ask the model to cite the supplied sources as [1], [2], etc.
 
-This keeps the core small while leaving clear extension points for web search, query expansion, evaluation, source verification, and a UI.
+Web search is opt-in through the CLI, keeping the default workflow local-first while allowing current web evidence when needed.
 
 ## Architecture
 
@@ -43,13 +44,25 @@ This keeps the core small while leaving clear extension points for web search, q
         Optional CrossEncoder reranking
                    |
                    v
-            Evidence context
                    |
-                   v
-        OpenAI-compatible LLM
-                   |
-                   v
-        Answer + source citations
+                   +----------------------+
+                   |                      |
+                   |                  --web
+                   |                      |
+                   |                      v
+                   |               Tavily web search
+                   |                      |
+                   |                      v
+                   +------------> Web evidence
+                              |
+                              v
+                       Evidence context
+                              |
+                              v
+                   OpenAI-compatible LLM
+                              |
+                              v
+                    Answer + source citations
 
 ## Features
 
@@ -58,6 +71,7 @@ This keeps the core small while leaving clear extension points for web search, q
 - HTML/HTM ingestion
 - Web page URL ingestion
 - Tavily web search provider
+- Opt-in web search through the CLI
 - Overlapping chunking with source metadata
 - Dense semantic retrieval
 - BM25 lexical retrieval
@@ -78,6 +92,7 @@ This keeps the core small while leaving clear extension points for web search, q
 - Python 3.10+
 - Internet access on first run to download the embedding/reranker models
 - An OpenAI-compatible LLM endpoint is optional
+- A Tavily API key is required when using ask --web
 
 Default embedding model:
 
@@ -120,6 +135,8 @@ The client expects the standard chat-completions route:
 
 The LLM is optional. Without configuration, the application still retrieves and prints evidence instead of pretending to have generated a grounded answer.
 
+TAVILY_API_KEY is only required when web search is enabled with ask --web.
+
 ## Quickstart
 
 ### 1. Index your documents
@@ -144,6 +161,16 @@ The generated local index is stored in data/index/ and is ignored by Git.
     research-assistant ask "What are the main advantages of retrieve-and-rerank?"
 
 The index is loaded from disk, so the corpus is not re-embedded for every question.
+
+### 3. Use web search
+
+By default, ask uses the indexed local documents only.
+
+To include Tavily web search results as additional evidence:
+
+    research-assistant ask "What are the latest developments in retrieval augmented generation?" --web
+
+The --web option combines the local retrieval evidence with web search results before sending the evidence to the LLM.
 
 ### 3. Disable reranking
 
@@ -235,7 +262,7 @@ The LLM layer targets the common chat-completions interface rather than hard-cod
 
 This is an early-stage research/RAG project, not a production platform.
 
-- Web search is currently exposed as a provider-level component and is not yet integrated into the end-to-end research workflow.
+- Web search is currently opt-in and requires a configured search provider.
 - There is no automated multi-page crawling workflow yet.
 - Citations are source labels supplied to the LLM, not independently verified claims.
 - There is no retrieval/answer evaluation harness yet.
@@ -254,7 +281,8 @@ These limitations are intentional extension points.
 ### Research workflow
 - [x] PDF ingestion
 - [x] HTML/web ingestion
-- [ ] Tavily search integration into the research pipeline
+- [x] Tavily search integration into the research pipeline
+- [x] CLI web search option
 - [ ] Query expansion and multi-query retrieval
 - [ ] Source-level answer verification
 - [ ] Research report generation with bibliography
