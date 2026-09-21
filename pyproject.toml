@@ -17,7 +17,8 @@ dependencies = [
   "python-dotenv>=1.0",
   "sentence-transformers>=6.0",
   "scikit-learn>=1.5",
-  "qdrant-client>=1.16"
+  "qdrant-client>=1.16",
+  "pypdf>=6.0"
 ]
 
 [project.optional-dependencies]

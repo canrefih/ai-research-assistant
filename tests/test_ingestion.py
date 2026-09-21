@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from research_assistant.ingestion import load_directory
 
 def test_load_directory(tmp_path):
@@ -89,4 +91,32 @@ def test_load_directory_deduplicates_same_content_with_different_metadata(
     assert chunks[0].metadata == {
         "source": "first.md",
         "file_type": "md",
+    }
+
+
+def test_load_directory_reads_pdf(tmp_path, monkeypatch):
+    class FakePage:
+        def extract_text(self):
+            return "PDF research test"
+
+    class FakeReader:
+        def __init__(self, path):
+            self.path = path
+            self.pages = [FakePage()]
+
+    monkeypatch.setattr(
+        "research_assistant.ingestion.PdfReader",
+        FakeReader,
+    )
+
+    document = tmp_path / "research.pdf"
+    document.write_bytes(b"fake pdf")
+
+    chunks = load_directory(tmp_path)
+
+    assert len(chunks) == 1
+    assert chunks[0].text == "PDF research test"
+    assert chunks[0].metadata == {
+        "source": "research.pdf",
+        "file_type": "pdf",
     }
