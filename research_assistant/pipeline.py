@@ -96,6 +96,7 @@ class ResearchPipeline:
         question: str,
         top_k: int = 8,
         metadata_filter: dict[str, str] | None = None,
+        use_web_search: bool = False,
     ) -> str:
         if not question.strip():
             raise ValueError("question must not be empty")
@@ -126,8 +127,28 @@ class ResearchPipeline:
                 top_k=min(top_k, len(results)),
             )
 
-        evidence = "\n\n".join(
+        evidence_parts = [
             f"[{i}] Source: {r.chunk.source}\n{r.chunk.text}"
             for i, r in enumerate(results, 1)
-        )
+        ]
+
+        if use_web_search:
+            web_results = self.search_web(
+                question,
+                top_k=top_k,
+            )
+
+            start_index = len(evidence_parts) + 1
+
+            evidence_parts.extend(
+                f"[{i}] Source: {result.url}\n"
+                f"Title: {result.title}\n"
+                f"{result.snippet}"
+                for i, result in enumerate(
+                    web_results,
+                    start_index,
+                )
+            )
+
+        evidence = "\n\n".join(evidence_parts)
         return self.llm.answer(question, evidence)
