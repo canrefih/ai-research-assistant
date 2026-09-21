@@ -444,3 +444,51 @@ def test_ask_without_web_disables_web_search(monkeypatch):
 		"top_k": 8,
 		"use_web_search": False,
 	}
+
+
+def test_cli_crawl_url(monkeypatch, capsys):
+    calls = {}
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            calls["init"] = kwargs
+
+        def crawl_url(self, url, max_pages):
+            calls["crawl"] = (url, max_pages)
+            return 3
+
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        FakePipeline,
+    )
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "research-assistant",
+            "crawl-url",
+            "https://example.com",
+            "--max-pages",
+            "7",
+        ],
+    )
+
+    from research_assistant.cli import main
+
+    main()
+
+    assert calls["init"] == {
+        "index_dir": "data/index",
+        "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    }
+    assert calls["crawl"] == (
+        "https://example.com",
+        7,
+    )
+
+    captured = capsys.readouterr()
+
+    assert (
+        "Crawled 3 chunks from https://example.com "
+        "into data/index."
+    ) in captured.out

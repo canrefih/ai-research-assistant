@@ -63,6 +63,27 @@ class ResearchPipeline:
 
         return len(chunks)
 
+    def crawl_url(
+        self,
+        url: str,
+        max_pages: int = 5,
+    ) -> int:
+        from .crawler import WebCrawler
+
+        crawler = WebCrawler(max_pages=max_pages)
+        chunks = crawler.crawl_chunks(url)
+
+        if not chunks:
+            raise ValueError(f"No content found while crawling {url}")
+
+        self.retriever.fit(chunks)
+        self.bm25_retriever.fit(chunks)
+
+        if self.vector_store is None:
+            self.store.save(chunks, self.retriever.embeddings)
+
+        return len(chunks)
+
     def search_web(
         self,
         query: str,

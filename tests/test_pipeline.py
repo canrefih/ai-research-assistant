@@ -1063,3 +1063,70 @@ def test_pipeline_search_web_requires_provider():
 
     with pytest.raises(ValueError, match="web search provider is not configured"):
         pipeline.search_web("test")
+
+
+def test_crawl_url(monkeypatch):
+    chunks = [
+        DocumentChunk(
+            chunk_id="web-1",
+            source="https://example.com",
+            text="Web research content",
+        )
+    ]
+
+    class FakeCrawler:
+        def __init__(self, max_pages):
+            assert max_pages == 3
+
+        def crawl_chunks(self, url):
+            assert url == "https://example.com"
+            return chunks
+
+    monkeypatch.setattr(
+        "research_assistant.crawler.WebCrawler",
+        FakeCrawler,
+    )
+
+    class FakeRetriever:
+        embeddings = [[1.0, 2.0]]
+
+        def fit(self, chunks):
+            assert chunks == [
+                DocumentChunk(
+                    chunk_id="web-1",
+                    source="https://example.com",
+                    text="Web research content",
+                )
+            ]
+
+    class FakeBM25:
+        def fit(self, chunks):
+            assert chunks == [
+                DocumentChunk(
+                    chunk_id="web-1",
+                    source="https://example.com",
+                    text="Web research content",
+                )
+            ]
+
+    class FakeStore:
+        def save(self, chunks, embeddings):
+            assert chunks == [
+                DocumentChunk(
+                    chunk_id="web-1",
+                    source="https://example.com",
+                    text="Web research content",
+                )
+            ]
+            assert embeddings == [[1.0, 2.0]]
+
+    pipeline = ResearchPipeline.__new__(ResearchPipeline)
+    pipeline.retriever = FakeRetriever()
+    pipeline.bm25_retriever = FakeBM25()
+    pipeline.vector_store = None
+    pipeline.store = FakeStore()
+
+    assert pipeline.crawl_url(
+        "https://example.com",
+        max_pages=3,
+    ) == 1

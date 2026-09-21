@@ -7,15 +7,16 @@ A local-first, citation-aware research assistant for turning documents and web p
 The project implements a practical hybrid retrieval and reranking pipeline:
 
 1. Ingest Markdown, text, PDF, HTML documents, and web pages while preserving their sources.
-2. Split documents into overlapping chunks.
-3. Create dense embeddings with Sentence Transformers.
-4. Persist chunks and embeddings to either a local NumPy index or Qdrant.
-5. Retrieve candidates using both dense semantic search and BM25.
-6. Combine retrieval results with reciprocal rank fusion.
-7. Optionally rerank candidates with a CrossEncoder.
-8. Optionally augment local evidence with Tavily web search results.
-9. Send the collected evidence to an OpenAI-compatible chat endpoint.
-10. Ask the model to cite the supplied sources as [1], [2], etc.
+2. Crawl same-domain web pages with a configurable page limit.
+3. Split documents into overlapping chunks.
+4. Create dense embeddings with Sentence Transformers.
+5. Persist chunks and embeddings to either a local NumPy index or Qdrant.
+6. Retrieve candidates using both dense semantic search and BM25.
+7. Combine retrieval results with reciprocal rank fusion.
+8. Optionally rerank candidates with a CrossEncoder.
+9. Optionally augment local evidence with Tavily web search results.
+10. Send the collected evidence to an OpenAI-compatible chat endpoint.
+11. Ask the model to cite the supplied sources as [1], [2], etc.
 
 Web search is opt-in through the CLI, keeping the default workflow local-first while allowing current web evidence when needed.
 
@@ -71,6 +72,7 @@ Web search is opt-in through the CLI, keeping the default workflow local-first w
 - HTML/HTM ingestion
 - Web page URL ingestion
 - Tavily web search provider
+- Same-domain web crawling with configurable page limits
 - Opt-in web search through the CLI
 - Overlapping chunking with source metadata
 - Dense semantic retrieval
@@ -195,6 +197,16 @@ You can also choose a custom index directory:
 
     research-assistant index-url https://example.com/research --index-dir data/web-index
 
+### 7. Crawl a web site
+
+    research-assistant crawl-url https://example.com --max-pages 10
+
+The crawler follows HTTP/HTTPS links on the same domain and indexes up to the configured number of pages.
+
+You can also choose a custom index directory:
+
+    research-assistant crawl-url https://example.com --max-pages 10 --index-dir data/web-crawl
+
 ## Included example
 
 The repository contains a tiny sample corpus in data/sample/.
@@ -220,6 +232,7 @@ The repository contains a tiny sample corpus in data/sample/.
     |   +-- storage.py              # Local index persistence
     |   +-- vector_store.py         # Vector-store protocol and Qdrant backend
     |   +-- web_search.py           # Web search provider abstraction and Tavily implementation
+    |   +-- crawler.py              # Same-domain web crawling
     +-- tests/
     |   +-- test_bm25.py
     |   +-- test_chunking.py
@@ -233,6 +246,7 @@ The repository contains a tiny sample corpus in data/sample/.
     |   +-- test_storage.py
     |   +-- test_vector_store.py
     |   +-- test_web_search.py
+    |   +-- test_crawler.py
     +-- .env.example
     +-- .gitignore
     +-- pyproject.toml
@@ -263,7 +277,7 @@ The LLM layer targets the common chat-completions interface rather than hard-cod
 This is an early-stage research/RAG project, not a production platform.
 
 - Web search is currently opt-in and requires a configured search provider.
-- There is no automated multi-page crawling workflow yet.
+- Web crawling is limited to same-domain pages and a configurable page count.
 - Citations are source labels supplied to the LLM, not independently verified claims.
 - There is no retrieval/answer evaluation harness yet.
 
@@ -281,6 +295,7 @@ These limitations are intentional extension points.
 ### Research workflow
 - [x] PDF ingestion
 - [x] HTML/web ingestion
+- [x] Same-domain web crawling
 - [x] Tavily search integration into the research pipeline
 - [x] CLI web search option
 - [ ] Query expansion and multi-query retrieval

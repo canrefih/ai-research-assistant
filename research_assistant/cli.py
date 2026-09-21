@@ -68,6 +68,22 @@ def main() -> None:
         help="Sentence Transformer model used for semantic retrieval",
     )
 
+    crawl_parser = sub.add_parser("crawl-url")
+    crawl_parser.add_argument("url")
+    crawl_parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=5,
+    )
+    crawl_parser.add_argument(
+        "--index-dir",
+        default="data/index",
+    )
+    crawl_parser.add_argument(
+        "--embedding-model",
+        default="sentence-transformers/all-MiniLM-L6-v2",
+    )
+
     args = parser.parse_args()
 
     try:
@@ -86,6 +102,20 @@ def main() -> None:
             )
             count = pipeline.index_url(args.url)
             print(f"Indexed {count} chunks from {args.url} into {args.index_dir}.")
+
+        elif args.command == "crawl-url":
+            pipeline = ResearchPipeline(
+                index_dir=args.index_dir,
+                embedding_model=args.embedding_model,
+            )
+            count = pipeline.crawl_url(
+                args.url,
+                max_pages=args.max_pages,
+            )
+            print(
+                f"Crawled {count} chunks from {args.url} "
+                f"into {args.index_dir}."
+            )
 
         elif args.command == "ask":
             pipeline_kwargs = {
