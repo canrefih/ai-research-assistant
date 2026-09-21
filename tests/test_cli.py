@@ -1,7 +1,9 @@
 import pytest
 import requests
+import sys
 
 from research_assistant.cli import main
+import research_assistant.cli as cli
 
 
 class FakePipeline:
@@ -627,3 +629,48 @@ def test_ask_with_query_expansion_enables_expansion(monkeypatch):
 		"use_web_search": False,
 		"use_query_expansion": True,
 	}
+
+
+def test_benchmark_command_prints_metrics(monkeypatch, capsys):
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def load_index(self):
+            return 2
+
+    class FakeMetrics:
+        recall_at_k = 0.75
+        mean_reciprocal_rank = 0.6
+        ndcg_at_k = 0.8
+
+    monkeypatch.setattr(
+        cli,
+        "ResearchPipeline",
+        FakePipeline,
+    )
+    monkeypatch.setattr(
+        cli,
+        "benchmark_dataset",
+        lambda pipeline, dataset, k: FakeMetrics(),
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "research-assistant",
+            "benchmark",
+            "data/evaluation/golden.jsonl",
+            "--top-k",
+            "5",
+        ],
+    )
+
+    cli.main()
+
+    output = capsys.readouterr().out
+
+    assert "Recall@5: 0.7500" in output
+    assert "MRR: 0.6000" in output
+    assert "NDCG@5: 0.8000" in output

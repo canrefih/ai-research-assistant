@@ -303,7 +303,7 @@ This is an early-stage research/RAG project, not a production platform.
 - Web search is currently opt-in and requires a configured search provider.
 - Web crawling is limited to same-domain pages and a configurable page count.
 - Citations are source labels supplied to the LLM, not independently verified claims.
-- There is no retrieval/answer evaluation harness yet.
+- Retrieval evaluation is currently based on a small golden-question dataset and retrieval metrics.
 
 These limitations are intentional extension points.
 
@@ -327,8 +327,8 @@ These limitations are intentional extension points.
 - [ ] Research report generation with bibliography
 
 ### Evaluation
-- [ ] Golden-question dataset
-- [ ] Recall@K, MRR and NDCG
+- [x] Golden-question dataset
+- [x] Recall@K, MRR and NDCG
 - [ ] Answer faithfulness checks
 - [ ] Retrieval-vs-generation error analysis
 

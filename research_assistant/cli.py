@@ -4,6 +4,7 @@ import requests
 from dotenv import load_dotenv
 
 from .pipeline import ResearchPipeline
+from .evaluation import benchmark_dataset
 from .web_search import TavilySearchProvider
 from .query_expansion import LLMQueryExpander
 from .source_verification import HttpSourceVerifier
@@ -28,6 +29,38 @@ def main() -> None:
         "--embedding-model",
         default="sentence-transformers/all-MiniLM-L6-v2",
         help="Sentence Transformer model used for semantic retrieval",
+    )
+
+    benchmark = sub.add_parser(
+        "benchmark",
+        help="Evaluate retrieval against a golden dataset",
+    )
+    benchmark.add_argument(
+        "dataset",
+        help="Path to the golden evaluation dataset",
+    )
+    benchmark.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+    )
+    benchmark.add_argument(
+        "--index-dir",
+        default="data/index",
+    )
+    benchmark.add_argument(
+        "--embedding-model",
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        help="Sentence Transformer model used for semantic retrieval",
+    )
+    benchmark.add_argument(
+        "--reranker-model",
+        default="cross-encoder/ms-marco-MiniLM-L6-v2",
+        help="CrossEncoder model used for reranking",
+    )
+    benchmark.add_argument(
+        "--no-reranker",
+        action="store_true",
     )
 
     ask = sub.add_parser("ask", help="Ask a question against an existing index")
@@ -128,6 +161,26 @@ def main() -> None:
                 f"Crawled {count} chunks from {args.url} "
                 f"into {args.index_dir}."
             )
+
+        elif args.command == "benchmark":
+            pipeline = ResearchPipeline(
+                use_reranker=not args.no_reranker,
+                index_dir=args.index_dir,
+                embedding_model=args.embedding_model,
+                reranker_model=args.reranker_model,
+            )
+
+            pipeline.load_index()
+
+            metrics = benchmark_dataset(
+                pipeline,
+                args.dataset,
+                k=args.top_k,
+            )
+
+            print(f"Recall@{args.top_k}: {metrics.recall_at_k:.4f}")
+            print(f"MRR: {metrics.mean_reciprocal_rank:.4f}")
+            print(f"NDCG@{args.top_k}: {metrics.ndcg_at_k:.4f}")
 
         elif args.command == "ask":
             pipeline_kwargs = {
