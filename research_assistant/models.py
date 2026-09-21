@@ -13,3 +13,10 @@ class DocumentChunk:
 class SearchResult:
     chunk: DocumentChunk
     score: float
+
+
+@dataclass(frozen=True)
+class WebSearchResult:
+    title: str
+    url: str
+    snippet: str

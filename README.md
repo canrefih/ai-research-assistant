@@ -1,12 +1,12 @@
 # AI Research Assistant
 
-A local-first, citation-aware research assistant for turning Markdown and text documents into searchable evidence and grounded LLM answers.
+A local-first, citation-aware research assistant for turning documents and web pages into searchable evidence and grounded LLM answers.
 
 ## What it does
 
 The project implements a practical hybrid retrieval and reranking pipeline:
 
-1. Ingest Markdown/text documents and preserve their source paths.
+1. Ingest Markdown, text, PDF, HTML documents, and web pages while preserving their sources.
 2. Split documents into overlapping chunks.
 3. Create dense embeddings with Sentence Transformers.
 4. Persist chunks and embeddings to either a local NumPy index or Qdrant.
@@ -16,7 +16,7 @@ The project implements a practical hybrid retrieval and reranking pipeline:
 8. Send only the retrieved evidence to an OpenAI-compatible chat endpoint.
 9. Ask the model to cite the supplied sources as [1], [2], etc.
 
-This keeps the core small while leaving clear extension points for web search, evaluation, PDF ingestion, and a UI.
+This keeps the core small while leaving clear extension points for web search, query expansion, evaluation, source verification, and a UI.
 
 ## Architecture
 
@@ -54,6 +54,10 @@ This keeps the core small while leaving clear extension points for web search, e
 ## Features
 
 - Markdown and plain-text ingestion
+- PDF ingestion
+- HTML/HTM ingestion
+- Web page URL ingestion
+- Tavily web search provider
 - Overlapping chunking with source metadata
 - Dense semantic retrieval
 - BM25 lexical retrieval
@@ -108,6 +112,7 @@ Then configure an OpenAI-compatible endpoint:
     LLM_BASE_URL=https://api.openai.com/v1
     LLM_API_KEY=your-api-key
     LLM_MODEL=your-model-name
+    TAVILY_API_KEY=your-tavily-api-key
 
 The client expects the standard chat-completions route:
 
@@ -155,6 +160,14 @@ This is useful when you want a faster retrieval-only baseline.
     research-assistant index data/papers --index-dir data/my-research
     research-assistant ask "Summarize the findings" --index-dir data/my-research
 
+### 6. Index a web page
+
+    research-assistant index-url https://example.com/research
+
+You can also choose a custom index directory:
+
+    research-assistant index-url https://example.com/research --index-dir data/web-index
+
 ## Included example
 
 The repository contains a tiny sample corpus in data/sample/.
@@ -166,8 +179,10 @@ The repository contains a tiny sample corpus in data/sample/.
 
     ai-research-assistant/
     +-- data/
+    |   +-- index/                  # Local persisted index
     |   +-- sample/                 # Small example corpus
     +-- research_assistant/
+    |   +-- __init__.py
     |   +-- chunking.py             # Chunking and overlap
     |   +-- cli.py                  # Command-line interface
     |   +-- ingestion.py            # Document discovery/loading
@@ -176,18 +191,21 @@ The repository contains a tiny sample corpus in data/sample/.
     |   +-- pipeline.py             # End-to-end orchestration
     |   +-- retrieval.py            # Dense, BM25, fusion, and reranking
     |   +-- storage.py              # Local index persistence
-    |   +-- vector_store.py            # Vector-store protocol and Qdrant backend
+    |   +-- vector_store.py         # Vector-store protocol and Qdrant backend
+    |   +-- web_search.py           # Web search provider abstraction and Tavily implementation
     +-- tests/
     |   +-- test_bm25.py
     |   +-- test_chunking.py
     |   +-- test_cli.py
     |   +-- test_fusion.py
     |   +-- test_ingestion.py
+    |   +-- test_models.py
     |   +-- test_pipeline.py
     |   +-- test_retrieval.py
     |   +-- test_reranker.py
     |   +-- test_storage.py
     |   +-- test_vector_store.py
+    |   +-- test_web_search.py
     +-- .env.example
     +-- .gitignore
     +-- pyproject.toml
@@ -217,11 +235,9 @@ The LLM layer targets the common chat-completions interface rather than hard-cod
 
 This is an early-stage research/RAG project, not a production platform.
 
-- Only .md and .txt files are ingested.
-- The default CLI workflow uses the local NumPy index; Qdrant is available as a vector-store backend.
-- Qdrant is currently used with local persistence; Docker/cloud deployment configuration is not yet included.
+- Web search is currently exposed as a provider-level component and is not yet integrated into the end-to-end research workflow.
+- There is no automated multi-page crawling workflow yet.
 - Citations are source labels supplied to the LLM, not independently verified claims.
-- There is no web search or crawling layer.
 - There is no retrieval/answer evaluation harness yet.
 
 These limitations are intentional extension points.
@@ -236,8 +252,9 @@ These limitations are intentional extension points.
 - [x] Qdrant vector database backend
 
 ### Research workflow
-- [ ] PDF ingestion
-- [ ] HTML/web ingestion
+- [x] PDF ingestion
+- [x] HTML/web ingestion
+- [ ] Tavily search integration into the research pipeline
 - [ ] Query expansion and multi-query retrieval
 - [ ] Source-level answer verification
 - [ ] Research report generation with bibliography
