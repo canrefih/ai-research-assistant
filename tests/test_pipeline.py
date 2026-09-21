@@ -1,7 +1,8 @@
-from research_assistant.models import DocumentChunk, SearchResult
+from research_assistant.models import DocumentChunk, SearchResult, ResearchReport
 from research_assistant.pipeline import ResearchPipeline
 from research_assistant.vector_store import QdrantVectorStore
 from research_assistant.models import WebSearchResult
+from research_assistant.source_verification import SourceVerificationResult
 
 import pytest
 import numpy as np
@@ -1374,3 +1375,144 @@ def test_pipeline_does_not_verify_sources_by_default(monkeypatch):
         "original query",
         use_web_search=True,
     ) == "answer"
+
+
+def test_pipeline_research_returns_structured_report():
+    class FakeRetriever:
+        def search(self, query, top_k=8, metadata_filter=None):
+            return [
+                SearchResult(
+                    chunk=DocumentChunk(
+                        chunk_id="1",
+                        source="docs/example.md",
+                        text="Example evidence",
+                    ),
+                    score=0.9,
+                )
+            ]
+
+    class FakeLLM:
+        def answer(self, question, evidence):
+            return "Research answer [1]"
+
+    pipeline = ResearchPipeline.__new__(ResearchPipeline)
+    pipeline.retriever = FakeRetriever()
+    pipeline.llm = FakeLLM()
+
+
+    class FakeBM25Retriever:
+        def search(self, query, top_k=8, metadata_filter=None):
+            return []
+
+
+    pipeline.bm25_retriever = FakeBM25Retriever()
+    pipeline.reranker = None
+    pipeline.query_expander = None
+    pipeline.source_verifier = None
+    pipeline.web_search_provider = None
+
+    report = pipeline.research("What is research?")
+
+    assert isinstance(report, ResearchReport)
+    assert report.question == "What is research?"
+    assert report.answer == "Research answer [1]"
+    assert len(report.sources) == 1
+    assert report.sources[0].source == "docs/example.md"
+
+
+def test_pipeline_research_includes_web_sources():
+    class FakeRetriever:
+        def search(self, query, top_k=8, metadata_filter=None):
+            return []
+
+    class FakeBM25Retriever:
+        def search(self, query, top_k=8, metadata_filter=None):
+            return []
+
+    class FakeLLM:
+        def answer(self, question, evidence):
+            return "Research answer [1]"
+
+    class FakeWebSearchProvider:
+        def search(self, query, top_k=5):
+            return [
+                WebSearchResult(
+                    title="Example Article",
+                    url="https://example.com/article",
+                    snippet="Example web evidence",
+                )
+            ]
+
+    pipeline = ResearchPipeline.__new__(ResearchPipeline)
+    pipeline.retriever = FakeRetriever()
+    pipeline.bm25_retriever = FakeBM25Retriever()
+    pipeline.reranker = None
+    pipeline.llm = FakeLLM()
+    pipeline.query_expander = None
+    pipeline.source_verifier = None
+    pipeline.web_search_provider = FakeWebSearchProvider()
+
+    report = pipeline.research(
+        "What is research?",
+        use_web_search=True,
+    )
+
+    assert len(report.sources) == 1
+    assert report.sources[0].source == "https://example.com/article"
+    assert report.sources[0].title == "Example Article"
+    assert report.sources[0].url == "https://example.com/article"
+
+
+def test_pipeline_research_filters_unverified_web_sources():
+    class FakeRetriever:
+        def search(self, query, top_k=8, metadata_filter=None):
+            return []
+
+    class FakeBM25Retriever:
+        def search(self, query, top_k=8, metadata_filter=None):
+            return []
+
+    class FakeLLM:
+        def answer(self, question, evidence):
+            return "Research answer [1]"
+
+    class FakeWebSearchProvider:
+        def search(self, query, top_k=5):
+            return [
+                WebSearchResult(
+                    title="Valid Article",
+                    url="https://example.com/valid",
+                    snippet="Valid evidence",
+                ),
+                WebSearchResult(
+                    title="Invalid Article",
+                    url="https://example.com/invalid",
+                    snippet="Invalid evidence",
+                ),
+            ]
+
+    class FakeSourceVerifier:
+        def verify(self, source):
+            return SourceVerificationResult(
+                source=source,
+                is_valid=source.url.endswith("/valid"),
+            )
+
+    pipeline = ResearchPipeline.__new__(ResearchPipeline)
+    pipeline.retriever = FakeRetriever()
+    pipeline.bm25_retriever = FakeBM25Retriever()
+    pipeline.reranker = None
+    pipeline.llm = FakeLLM()
+    pipeline.query_expander = None
+    pipeline.web_search_provider = FakeWebSearchProvider()
+    pipeline.source_verifier = FakeSourceVerifier()
+
+    report = pipeline.research(
+        "What is research?",
+        use_web_search=True,
+        verify_sources=True,
+    )
+
+    assert len(report.sources) == 1
+    assert report.sources[0].title == "Valid Article"
+    assert report.sources[0].url == "https://example.com/valid"

@@ -20,3 +20,17 @@ class WebSearchResult:
     title: str
     url: str
     snippet: str
+
+
+@dataclass(frozen=True)
+class ResearchSource:
+    source: str
+    title: str | None = None
+    url: str | None = None
+
+
+@dataclass(frozen=True)
+class ResearchReport:
+    question: str
+    answer: str
+    sources: list[ResearchSource]

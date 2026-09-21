@@ -5,6 +5,7 @@ from .vector_store import VectorStoreProtocol
 
 from .ingestion import load_directory, load_url
 from .llm import LLMClient
+from .models import ResearchReport, ResearchSource
 from .retrieval import (
     BM25Retriever,
     Reranker,
@@ -127,6 +128,52 @@ class ResearchPipeline:
         use_query_expansion: bool = False,
         verify_sources: bool = False,
     ) -> str:
+        evidence, _ = self._build_research_context(
+            question,
+            top_k=top_k,
+            metadata_filter=metadata_filter,
+            use_web_search=use_web_search,
+            use_query_expansion=use_query_expansion,
+            verify_sources=verify_sources,
+        )
+
+        return self.llm.answer(question, evidence)
+
+    def research(
+        self,
+        question: str,
+        top_k: int = 8,
+        metadata_filter: dict[str, str] | None = None,
+        use_web_search: bool = False,
+        use_query_expansion: bool = False,
+        verify_sources: bool = False,
+    ) -> ResearchReport:
+        evidence, sources = self._build_research_context(
+            question,
+            top_k=top_k,
+            metadata_filter=metadata_filter,
+            use_web_search=use_web_search,
+            use_query_expansion=use_query_expansion,
+            verify_sources=verify_sources,
+        )
+
+        answer = self.llm.answer(question, evidence)
+
+        return ResearchReport(
+            question=question,
+            answer=answer,
+            sources=sources,
+        )
+
+    def _build_research_context(
+        self,
+        question: str,
+        top_k: int = 8,
+        metadata_filter: dict[str, str] | None = None,
+        use_web_search: bool = False,
+        use_query_expansion: bool = False,
+        verify_sources: bool = False,
+    ) -> tuple[str, list[ResearchSource]]:
         if not question.strip():
             raise ValueError("question must not be empty")
         if top_k < 1:
@@ -178,6 +225,11 @@ class ResearchPipeline:
             for i, r in enumerate(results, 1)
         ]
 
+        sources = [
+            ResearchSource(source=r.chunk.source)
+            for r in results
+        ]
+
         if use_web_search:
             web_results = self.search_web(
                 question,
@@ -203,5 +255,13 @@ class ResearchPipeline:
                 )
             )
 
-        evidence = "\n\n".join(evidence_parts)
-        return self.llm.answer(question, evidence)
+            sources.extend(
+                ResearchSource(
+                    source=result.url,
+                    title=result.title,
+                    url=result.url,
+                )
+                for result in web_results
+            )
+
+        return "\n\n".join(evidence_parts), sources
