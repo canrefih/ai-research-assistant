@@ -4,7 +4,11 @@ import requests
 from dotenv import load_dotenv
 
 from .pipeline import ResearchPipeline
-from .evaluation import benchmark_dataset
+from research_assistant.evaluation import (
+    benchmark_dataset,
+    benchmark_faithfulness,
+    load_evaluation_dataset,
+)
 from .web_search import TavilySearchProvider
 from .query_expansion import LLMQueryExpander
 from .source_verification import HttpSourceVerifier
@@ -61,6 +65,11 @@ def main() -> None:
     benchmark.add_argument(
         "--no-reranker",
         action="store_true",
+    )
+    benchmark.add_argument(
+        "--faithfulness",
+        action="store_true",
+        help="also evaluate answer faithfulness against retrieved evidence",
     )
 
     ask = sub.add_parser("ask", help="Ask a question against an existing index")
@@ -181,6 +190,19 @@ def main() -> None:
             print(f"Recall@{args.top_k}: {metrics.recall_at_k:.4f}")
             print(f"MRR: {metrics.mean_reciprocal_rank:.4f}")
             print(f"NDCG@{args.top_k}: {metrics.ndcg_at_k:.4f}")
+
+            if args.faithfulness:
+                cases = load_evaluation_dataset(args.dataset)
+
+                faithfulness_metrics = benchmark_faithfulness(
+                    pipeline,
+                    cases,
+                )
+
+                print(
+                    "Supported Claim Ratio: "
+                    f"{faithfulness_metrics.supported_claim_ratio:.4f}"
+                )
 
         elif args.command == "ask":
             pipeline_kwargs = {

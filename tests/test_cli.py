@@ -674,3 +674,66 @@ def test_benchmark_command_prints_metrics(monkeypatch, capsys):
     assert "Recall@5: 0.7500" in output
     assert "MRR: 0.6000" in output
     assert "NDCG@5: 0.8000" in output
+
+
+def test_benchmark_with_faithfulness(capsys, monkeypatch):
+    class FakeMetrics:
+        recall_at_k = 1.0
+        mean_reciprocal_rank = 1.0
+        ndcg_at_k = 1.0
+
+    class FakeFaithfulnessMetrics:
+        supported_claim_ratio = 0.75
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            pass
+
+        def load_index(self):
+            return 1
+
+    def fake_benchmark_dataset(pipeline, dataset, k):
+        return FakeMetrics()
+
+    def fake_load_evaluation_dataset(path):
+        return ["fake-case"]
+
+    def fake_benchmark_faithfulness(pipeline, cases):
+        return FakeFaithfulnessMetrics()
+
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        FakePipeline,
+    )
+    monkeypatch.setattr(
+        "research_assistant.cli.benchmark_dataset",
+        fake_benchmark_dataset,
+    )
+    monkeypatch.setattr(
+        "research_assistant.cli.load_evaluation_dataset",
+        fake_load_evaluation_dataset,
+    )
+    monkeypatch.setattr(
+        "research_assistant.cli.benchmark_faithfulness",
+        fake_benchmark_faithfulness,
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "research_assistant",
+            "benchmark",
+            "dataset.jsonl",
+            "--faithfulness",
+        ],
+    )
+
+    main()
+
+    output = capsys.readouterr().out
+
+    assert "Recall@5: 1.0000" in output
+    assert "MRR: 1.0000" in output
+    assert "NDCG@5: 1.0000" in output
+    assert "Supported Claim Ratio: 0.7500" in output

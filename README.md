@@ -88,6 +88,7 @@ Web search is opt-in through the CLI, keeping the default workflow local-first w
 - Optional LLM-based query expansion
 - OpenAI-compatible LLM endpoint
 - Citation-oriented evidence formatting
+- Retrieval and answer faithfulness evaluation
 - CLI interface
 - Unit tests
 - Environment-based API configuration
@@ -227,6 +228,20 @@ You can verify web search results before they are included in the evidence:
 
 Source verification performs HTTP requests to check whether web sources are reachable.
 
+### 10. Evaluation benchmark
+
+Run the retrieval benchmark against the evaluation dataset:
+
+    research-assistant benchmark tests/data/golden.jsonl
+
+The benchmark reports Recall@K, MRR, and NDCG.
+
+To also evaluate answer faithfulness against the retrieved evidence:
+
+    research-assistant benchmark tests/data/golden.jsonl --faithfulness
+
+The faithfulness metric reports the supported claim ratio, which measures the proportion of answer claims that have sufficient lexical overlap with the retrieved evidence.
+
 ## Included example
 
 The repository contains a tiny sample corpus in data/sample/.
@@ -303,7 +318,7 @@ This is an early-stage research/RAG project, not a production platform.
 - Web search is currently opt-in and requires a configured search provider.
 - Web crawling is limited to same-domain pages and a configurable page count.
 - Citations are source labels supplied to the LLM, not independently verified claims.
-- Retrieval evaluation is currently based on a small golden-question dataset and retrieval metrics.
+- Evaluation is currently based on a small golden-question dataset and deterministic retrieval/faithfulness metrics.
 
 These limitations are intentional extension points.
 
@@ -329,7 +344,7 @@ These limitations are intentional extension points.
 ### Evaluation
 - [x] Golden-question dataset
 - [x] Recall@K, MRR and NDCG
-- [ ] Answer faithfulness checks
+- [x] Answer faithfulness checks
 - [ ] Retrieval-vs-generation error analysis
 
 ### Developer experience

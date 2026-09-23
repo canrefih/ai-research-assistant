@@ -1,4 +1,18 @@
-from research_assistant.evaluation import EvaluationCase, EvaluationMetrics, evaluate_retrieval, load_evaluation_dataset, mean_reciprocal_rank, ndcg_at_k, recall_at_k, benchmark_pipeline, benchmark_dataset
+from research_assistant.evaluation import (
+	EvaluationCase,
+	EvaluationMetrics,
+	evaluate_retrieval,
+	load_evaluation_dataset,
+	mean_reciprocal_rank,
+	ndcg_at_k,
+	recall_at_k,
+	benchmark_pipeline,
+	benchmark_dataset,
+	supported_claim_ratio,
+	evaluate_faithfulness,
+	benchmark_faithfulness,
+	_content_words
+	)
 from pathlib import Path
 import pytest
 from research_assistant.models import ResearchSource
@@ -227,41 +241,151 @@ def test_benchmark_pipeline():
 
 
 def test_benchmark_dataset(tmp_path):
-    dataset_path = tmp_path / "golden.jsonl"
+	dataset_path = tmp_path / "golden.jsonl"
 
-    dataset_path.write_text(
-        '{"question":"What is retrieval-augmented generation?",'
-        '"relevant_sources":["data/sample/rag.md"]}\n'
-        '{"question":"What is information retrieval?",'
-        '"relevant_sources":["data/sample/retrieval.md"]}\n',
-        encoding="utf-8",
+	dataset_path.write_text(
+		'{"question":"What is retrieval-augmented generation?",'
+		'"relevant_sources":["data/sample/rag.md"]}\n'
+		'{"question":"What is information retrieval?",'
+		'"relevant_sources":["data/sample/retrieval.md"]}\n',
+		encoding="utf-8",
+	)
+
+	class FakePipeline:
+		def _build_research_context(
+			self,
+			question,
+			top_k,
+		):
+			if "information retrieval" in question:
+				return "", [
+					ResearchSource(
+						source="data/sample/retrieval.md"
+					),
+				]
+
+			return "", [
+				ResearchSource(
+					source="data/sample/rag.md"
+				),
+			]
+
+	metrics = benchmark_dataset(
+		FakePipeline(),
+		dataset_path,
+		k=1,
+	)
+
+	assert metrics.recall_at_k == 1.0
+	assert metrics.mean_reciprocal_rank == 1.0
+	assert metrics.ndcg_at_k == 1.0
+
+
+def test_supported_claim_ratio():
+	answer = "RAG uses retrieved documents. It improves factual grounding."
+	evidence = "RAG uses retrieved documents to provide additional context."
+
+	assert supported_claim_ratio(answer, evidence) == 0.5
+
+
+def test_supported_claim_ratio_returns_zero_for_empty_answer():
+	assert supported_claim_ratio("", "Some evidence.") == 0.0
+
+
+def test_supported_claim_ratio_returns_zero_when_claims_are_unsupported():
+	answer = "RAG completely eliminates hallucinations."
+	evidence = "RAG retrieves relevant documents."
+
+	assert supported_claim_ratio(answer, evidence) == 0.0
+
+
+def test_evaluate_faithfulness():
+	answers = [
+		"RAG uses retrieved documents.",
+		"It improves factual grounding.",
+	]
+	evidence = [
+		"RAG uses retrieved documents.",
+		"It improves factual grounding and context.",
+	]
+
+	assert evaluate_faithfulness(
+		answers,
+		evidence,
+	).supported_claim_ratio == 1.0
+
+
+def test_evaluate_faithfulness_returns_zero_for_empty_input():
+    assert (
+        evaluate_faithfulness([], []).supported_claim_ratio
+        == 0.0
     )
 
+
+def test_evaluate_faithfulness_requires_matching_lengths():
+	with pytest.raises(ValueError):
+		evaluate_faithfulness(
+			["RAG uses retrieved documents."],
+			[],
+		)
+
+
+def test_benchmark_faithfulness():
+	class FakeLLM:
+		def answer(self, question, evidence):
+			return "RAG uses retrieved documents."
+
+	class FakePipeline:
+		def __init__(self):
+			self.llm = FakeLLM()
+
+		def _build_research_context(self, question):
+			return (
+				"RAG uses retrieved documents to provide context.",
+				[],
+			)
+
+	cases = [
+		EvaluationCase(
+			question="What is RAG?",
+			relevant_sources=["data/sample/rag.md"],
+		)
+	]
+
+	score = benchmark_faithfulness(
+		FakePipeline(),
+		cases,
+	)
+
+	assert score.supported_claim_ratio == 1.0
+
+
+def test_content_words_removes_stop_words():
+	assert _content_words(
+		"RAG uses retrieved documents for context."
+	) == {
+		"rag",
+		"uses",
+		"retrieved",
+		"documents",
+		"context",
+	}
+
+
+def test_supported_claim_ratio_accepts_fifty_percent_word_overlap():
+	answer = "RAG uses retrieved documents."
+	evidence = "RAG uses context."
+
+	assert supported_claim_ratio(answer, evidence) == 1.0
+
+
+def test_benchmark_faithfulness_returns_zero_for_empty_cases():
     class FakePipeline:
-        def _build_research_context(
-            self,
-            question,
-            top_k,
-        ):
-            if "information retrieval" in question:
-                return "", [
-                    ResearchSource(
-                        source="data/sample/retrieval.md"
-                    ),
-                ]
+        pass
 
-            return "", [
-                ResearchSource(
-                    source="data/sample/rag.md"
-                ),
-            ]
-
-    metrics = benchmark_dataset(
+    metrics = benchmark_faithfulness(
         FakePipeline(),
-        dataset_path,
-        k=1,
+        [],
     )
 
-    assert metrics.recall_at_k == 1.0
-    assert metrics.mean_reciprocal_rank == 1.0
-    assert metrics.ndcg_at_k == 1.0
+    assert metrics.supported_claim_ratio == 0.0
