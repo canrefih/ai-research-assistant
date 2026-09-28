@@ -24,17 +24,29 @@ class AskRequest(BaseModel):
     question: str = Field(min_length=1)
 
 
+class SourceResponse(BaseModel):
+    source: str
+
+
+class AskResponse(BaseModel):
+    answer: str
+    sources: list[SourceResponse]
+
+
 @app.post("/ask")
 def ask(
     request: AskRequest,
     pipeline: ResearchPipeline = Depends(get_pipeline),
-) -> dict:
+) -> AskResponse:
     try:
         report = pipeline.ask(request.question)
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return {
-        "answer": report.answer,
-        "sources": [source.source for source in report.sources],
-    }
+    return AskResponse(
+        answer=report.answer,
+        sources=[
+            SourceResponse(source=source.source)
+            for source in report.sources
+        ],
+    )

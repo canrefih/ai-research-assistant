@@ -38,7 +38,9 @@ def test_ask():
     assert response.status_code == 200
     assert response.json() == {
         "answer": "Python is a programming language.",
-        "sources": ["python.md"],
+        "sources": [
+            {"source": "python.md"},
+        ],
     }
 
 
