@@ -349,7 +349,7 @@ These limitations are intentional extension points.
 
 ### Developer experience
 - [x] CI with automated tests
-- [ ] Structured logging
+- [x] Structured logging
 - [ ] Typed configuration object
 - [ ] Optional FastAPI service
 - [ ] Web UI
