@@ -515,6 +515,57 @@ def test_pipeline_passes_vector_store_to_retriever(monkeypatch, tmp_path):
     assert vector_stores == [vector_store]
 
 
+def test_pipeline_uses_app_config(monkeypatch, tmp_path):
+    from research_assistant.config import AppConfig
+
+    captured = {}
+
+    class FakeSemanticRetriever:
+        def __init__(self, model_name, vector_store=None):
+            captured["embedding_model"] = model_name
+
+    class FakeBM25Retriever:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeReranker:
+        def __init__(self, model_name):
+            captured["reranker_model"] = model_name
+
+    class FakeLLM:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(
+        "research_assistant.pipeline.SemanticRetriever",
+        FakeSemanticRetriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.BM25Retriever",
+        FakeBM25Retriever,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.Reranker",
+        FakeReranker,
+    )
+    monkeypatch.setattr(
+        "research_assistant.pipeline.LLMClient",
+        FakeLLM,
+    )
+
+    config = AppConfig(
+        index_dir=tmp_path,
+        embedding_model="config-embedding-model",
+        reranker_model="config-reranker-model",
+        use_reranker=True,
+    )
+
+    ResearchPipeline(config=config)
+
+    assert captured["embedding_model"] == "config-embedding-model"
+    assert captured["reranker_model"] == "config-reranker-model"
+
+
 def test_pipeline_indexes_into_qdrant(monkeypatch, tmp_path):
     class FakeModel:
         def encode(

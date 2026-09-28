@@ -350,7 +350,7 @@ These limitations are intentional extension points.
 ### Developer experience
 - [x] CI with automated tests
 - [x] Structured logging
-- [ ] Typed configuration object
+- [x] Typed configuration object
 - [ ] Optional FastAPI service
 - [ ] Web UI
 

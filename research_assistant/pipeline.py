@@ -1,9 +1,9 @@
 import logging
 from pathlib import Path
 
-from research_assistant.query_expansion import QueryExpander
+from .config import AppConfig
+from .query_expansion import QueryExpander
 from .vector_store import VectorStoreProtocol
-
 from .ingestion import load_directory, load_url
 from .llm import LLMClient
 from .models import ResearchReport, ResearchSource
@@ -20,19 +20,39 @@ from .source_verification import SourceVerifier
 
 logger = logging.getLogger(__name__)
 
+
 class ResearchPipeline:
     def __init__(
         self,
-        use_reranker: bool = True,
-        index_dir: str | Path = "data/index",
-        embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        reranker_model: str = "cross-encoder/ms-marco-MiniLM-L6-v2",
+        use_reranker: bool | None = None,
+        index_dir: str | Path | None = None,
+        embedding_model: str | None = None,
+        reranker_model: str | None = None,
         store: IndexStoreProtocol | None = None,
         vector_store: VectorStoreProtocol | None = None,
         web_search_provider: WebSearchProvider | None = None,
         query_expander: QueryExpander | None = None,
         source_verifier: SourceVerifier | None = None,
+        config: AppConfig | None = None,
     ):
+        config = config or AppConfig()
+
+        index_dir = config.index_dir if index_dir is None else index_dir
+        embedding_model = (
+            config.embedding_model
+            if embedding_model is None
+            else embedding_model
+        )
+        reranker_model = (
+            config.reranker_model
+            if reranker_model is None
+            else reranker_model
+        )
+        use_reranker = (
+            config.use_reranker
+            if use_reranker is None
+            else use_reranker
+        )
         self.retriever = SemanticRetriever(
             model_name=embedding_model,
             vector_store=vector_store,
@@ -233,7 +253,7 @@ class ResearchPipeline:
         )
 
         logger.info("Retrieved %d fused results", len(results))
-        if self.reranker:
+        if self.reranker and results:
             results = self.reranker.rerank(
                 question,
                 results,
