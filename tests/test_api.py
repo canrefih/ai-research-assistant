@@ -1,3 +1,6 @@
+import pytest
+import research_assistant.api as api
+
 from fastapi.testclient import TestClient
 
 from research_assistant.api import app, get_pipeline
@@ -5,6 +8,30 @@ from research_assistant.pipeline import ResearchPipeline
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def isolate_pipeline(monkeypatch):
+    api.get_pipeline.cache_clear()
+
+    class FakeTavilySearchProvider:
+        def search(self, query, top_k=5):
+            return []
+
+    monkeypatch.setattr(
+        api,
+        "TavilySearchProvider",
+        FakeTavilySearchProvider,
+    )
+    monkeypatch.setattr(
+        api.ResearchPipeline,
+        "load_index",
+        lambda self: None,
+    )
+
+    yield
+
+    api.get_pipeline.cache_clear()
 
 
 def test_health():
@@ -15,14 +42,12 @@ def test_health():
 
 
 def test_get_pipeline_returns_research_pipeline():
-    get_pipeline.cache_clear()
     pipeline = get_pipeline()
 
     assert isinstance(pipeline, ResearchPipeline)
 
 
 def test_get_pipeline_returns_cached_instance():
-    get_pipeline.cache_clear()
     first = get_pipeline()
     second = get_pipeline()
 
