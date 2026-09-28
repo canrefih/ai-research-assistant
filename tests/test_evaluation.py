@@ -11,7 +11,10 @@ from research_assistant.evaluation import (
 	supported_claim_ratio,
 	evaluate_faithfulness,
 	benchmark_faithfulness,
-	_content_words
+	_content_words,
+	answer_overlap_score,
+	evaluate_answer_quality,
+	benchmark_answer_quality
 	)
 from pathlib import Path
 import pytest
@@ -23,6 +26,7 @@ def test_evaluation_case_stores_question_and_relevant_sources():
 	case = EvaluationCase(
 		question="What is retrieval-augmented generation?",
 		relevant_sources=["docs/rag.md"],
+		reference_answer="",
 	)
 
 	assert case.question == "What is retrieval-augmented generation?"
@@ -222,10 +226,12 @@ def test_benchmark_pipeline():
 		EvaluationCase(
 			question="What is retrieval-augmented generation?",
 			relevant_sources=["data/sample/rag.md"],
+			reference_answer="",
 		),
 		EvaluationCase(
 			question="What is information retrieval?",
 			relevant_sources=["data/sample/retrieval.md"],
+			reference_answer="",
 		),
 	]
 
@@ -349,6 +355,7 @@ def test_benchmark_faithfulness():
 		EvaluationCase(
 			question="What is RAG?",
 			relevant_sources=["data/sample/rag.md"],
+			reference_answer="",
 		)
 	]
 
@@ -389,3 +396,102 @@ def test_benchmark_faithfulness_returns_zero_for_empty_cases():
     )
 
     assert metrics.supported_claim_ratio == 0.0
+
+
+def test_answer_overlap_score_full_match():
+    score = answer_overlap_score(
+        "Retrieval uses relevant documents.",
+        "Retrieval uses relevant documents.",
+    )
+
+    assert score == 1.0
+
+
+def test_answer_overlap_score_partial_match():
+    score = answer_overlap_score(
+        "Retrieval uses documents.",
+        "Retrieval uses documents context.",
+    )
+
+    assert score == 3 / 4
+
+
+def test_answer_overlap_score_no_match():
+    score = answer_overlap_score(
+        "Cats sleep often.",
+        "Retrieval uses documents.",
+    )
+
+    assert score == 0.0
+
+
+def test_answer_overlap_score_empty_reference():
+    score = answer_overlap_score(
+        "Retrieval uses documents.",
+        "",
+    )
+
+    assert score == 0.0
+
+
+def test_evaluate_answer_quality_empty():
+    metrics = evaluate_answer_quality(
+        [],
+        [],
+    )
+
+    assert metrics.answer_overlap_score == 0.0
+
+
+def test_evaluate_answer_quality_average():
+    metrics = evaluate_answer_quality(
+        [
+            "Retrieval uses documents.",
+            "Cats sleep.",
+        ],
+        [
+            "Retrieval uses documents.",
+            "Dogs run.",
+        ],
+    )
+
+    assert metrics.answer_overlap_score == 0.5
+
+
+def test_evaluate_answer_quality_rejects_length_mismatch():
+    with pytest.raises(ValueError):
+        evaluate_answer_quality(
+            ["Retrieval uses documents."],
+            [],
+        )
+
+
+def test_benchmark_answer_quality():
+    class FakeLLM:
+        def answer(self, question, evidence):
+            return "RAG uses retrieved documents."
+
+    class FakePipeline:
+        def __init__(self):
+            self.llm = FakeLLM()
+
+        def _build_research_context(self, question):
+            return (
+                "RAG uses retrieved documents to provide context.",
+                [],
+            )
+
+    cases = [
+        EvaluationCase(
+            question="What is RAG?",
+            relevant_sources=["data/sample/rag.md"],
+            reference_answer="RAG uses retrieved documents.",
+        )
+    ]
+
+    metrics = benchmark_answer_quality(
+        FakePipeline(),
+        cases,
+    )
+
+    assert metrics.answer_overlap_score == 1.0

@@ -737,3 +737,22 @@ def test_benchmark_with_faithfulness(capsys, monkeypatch):
     assert "MRR: 1.0000" in output
     assert "NDCG@5: 1.0000" in output
     assert "Supported Claim Ratio: 0.7500" in output
+
+
+def test_benchmark_answer_quality(capsys, monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "research-assistant",
+            "benchmark",
+            "tests/data/golden_dataset.jsonl",
+            "--answer-quality",
+        ],
+    )
+
+    main()
+
+    captured = capsys.readouterr()
+
+    assert "Answer Overlap Score:" in captured.out

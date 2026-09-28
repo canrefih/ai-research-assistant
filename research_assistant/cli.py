@@ -8,6 +8,7 @@ from research_assistant.evaluation import (
     benchmark_dataset,
     benchmark_faithfulness,
     load_evaluation_dataset,
+    benchmark_answer_quality,
 )
 from .web_search import TavilySearchProvider
 from .query_expansion import LLMQueryExpander
@@ -71,6 +72,10 @@ def main() -> None:
         action="store_true",
         help="also evaluate answer faithfulness against retrieved evidence",
     )
+    benchmark.add_argument(
+		"--answer-quality",
+		action="store_true",
+	)
 
     ask = sub.add_parser("ask", help="Ask a question against an existing index")
     ask.add_argument("question")
@@ -202,6 +207,19 @@ def main() -> None:
                 print(
                     "Supported Claim Ratio: "
                     f"{faithfulness_metrics.supported_claim_ratio:.4f}"
+                )
+
+            if args.answer_quality:
+                cases = load_evaluation_dataset(args.dataset)
+
+                answer_quality_metrics = benchmark_answer_quality(
+                    pipeline,
+                    cases,
+                )
+
+                print(
+                    "Answer Overlap Score: "
+                    f"{answer_quality_metrics.answer_overlap_score:.4f}"
                 )
 
         elif args.command == "ask":

@@ -1,2 +1,3 @@
-{"question":"What is retrieval-augmented generation?","relevant_sources":["data/sample/rag.md"]}
-{"question":"What is information retrieval?","relevant_sources":["data/sample/retrieval.md"]}
+{"question":"What is retrieval-augmented generation?","relevant_sources":["data/sample/rag.md"],"reference_answer":"Retrieval-augmented generation retrieves relevant documents and uses them as context to generate an answer."}
+
+{"question":"What is information retrieval?","relevant_sources":["data/sample/retrieval.md"],"reference_answer":"Information retrieval is the process of finding relevant information from a collection of documents."}

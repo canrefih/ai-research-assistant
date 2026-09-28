@@ -8,8 +8,9 @@ from research_assistant.pipeline import ResearchPipeline
 
 @dataclass(frozen=True)
 class EvaluationCase:
-	question: str
-	relevant_sources: list[str]
+    question: str
+    relevant_sources: list[str]
+    reference_answer: str
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,11 @@ class EvaluationMetrics:
 @dataclass(frozen=True)
 class FaithfulnessMetrics:
 	supported_claim_ratio: float
+
+
+@dataclass(frozen=True)
+class AnswerQualityMetrics:
+    answer_overlap_score: float
 
 
 def load_evaluation_dataset(
@@ -39,6 +45,7 @@ def load_evaluation_dataset(
 				EvaluationCase(
 					question=data["question"],
 					relevant_sources=data["relevant_sources"],
+					reference_answer="",
 				)
 			)
 
@@ -169,6 +176,48 @@ def supported_claim_ratio(
 			supported += 1
 
 	return supported / len(claims)
+
+
+def answer_overlap_score(
+    answer: str,
+    reference_answer: str,
+) -> float:
+    answer_words = _content_words(answer)
+    reference_words = _content_words(reference_answer)
+
+    if not reference_words:
+        return 0.0
+
+    overlap = answer_words & reference_words
+
+    return len(overlap) / len(reference_words)
+
+
+def evaluate_answer_quality(
+    answers: list[str],
+    reference_answers: list[str],
+) -> AnswerQualityMetrics:
+    if not answers:
+        return AnswerQualityMetrics(
+            answer_overlap_score=0.0,
+        )
+
+    if len(answers) != len(reference_answers):
+        raise ValueError(
+            "answers and reference_answers must have the same length"
+        )
+
+    scores = [
+        answer_overlap_score(answer, reference)
+        for answer, reference in zip(
+            answers,
+            reference_answers,
+        )
+    ]
+
+    return AnswerQualityMetrics(
+        answer_overlap_score=sum(scores) / len(scores),
+    )
 
 
 def evaluate_faithfulness(
@@ -336,3 +385,27 @@ def benchmark_faithfulness(
 		answers,
 		evidence,
 	)
+
+
+def benchmark_answer_quality(
+    pipeline,
+    cases: list[EvaluationCase],
+) -> AnswerQualityMetrics:
+    answers = []
+    reference_answers = []
+
+    for case in cases:
+        context, _ = pipeline._build_research_context(case.question)
+
+        answer = pipeline.llm.answer(
+            case.question,
+            context,
+        )
+
+        answers.append(answer)
+        reference_answers.append(case.reference_answer)
+
+    return evaluate_answer_quality(
+        answers,
+        reference_answers,
+    )
