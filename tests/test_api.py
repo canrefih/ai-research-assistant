@@ -20,6 +20,13 @@ def test_get_pipeline_returns_research_pipeline():
     assert isinstance(pipeline, ResearchPipeline)
 
 
+def test_get_pipeline_returns_cached_instance():
+    first = get_pipeline()
+    second = get_pipeline()
+
+    assert first is second
+
+
 def test_ask():
     class FakeReport:
         answer = "Python is a programming language."

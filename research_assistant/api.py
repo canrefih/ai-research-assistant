@@ -1,6 +1,7 @@
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from .pipeline import ResearchPipeline
+from functools import lru_cache
 
 
 app = FastAPI(
@@ -10,6 +11,7 @@ app = FastAPI(
 
 
 
+@lru_cache
 def get_pipeline() -> ResearchPipeline:
     return ResearchPipeline()
 
