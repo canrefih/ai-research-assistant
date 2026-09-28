@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from research_assistant.api import app, get_pipeline
+from research_assistant.pipeline import ResearchPipeline
 
 
 client = TestClient(app)
@@ -11,6 +12,12 @@ def test_health():
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_get_pipeline_returns_research_pipeline():
+    pipeline = get_pipeline()
+
+    assert isinstance(pipeline, ResearchPipeline)
 
 
 def test_ask():
