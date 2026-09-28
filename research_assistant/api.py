@@ -26,6 +26,8 @@ class AskRequest(BaseModel):
 
 class SourceResponse(BaseModel):
     source: str
+    title: str | None = None
+    url: str | None = None
 
 
 class AskResponse(BaseModel):
@@ -46,7 +48,11 @@ def ask(
     return AskResponse(
         answer=report.answer,
         sources=[
-            SourceResponse(source=source.source)
+            SourceResponse(
+                source=source.source,
+                title=source.title,
+                url=source.url,
+            )
             for source in report.sources
         ],
     )

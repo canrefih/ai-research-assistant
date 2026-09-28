@@ -17,7 +17,15 @@ def test_ask():
     class FakeReport:
         answer = "Python is a programming language."
         sources = [
-            type("Source", (), {"source": "python.md"})(),
+            type(
+                "Source",
+                (),
+                {
+                    "source": "python.md",
+                    "title": "Python",
+                    "url": "https://example.com/python",
+                },
+            )(),
         ]
 
     class FakePipeline:
@@ -39,7 +47,11 @@ def test_ask():
     assert response.json() == {
         "answer": "Python is a programming language.",
         "sources": [
-            {"source": "python.md"},
+            {
+                "source": "python.md",
+                "title": "Python",
+                "url": "https://example.com/python",
+            },
         ],
     }
 
