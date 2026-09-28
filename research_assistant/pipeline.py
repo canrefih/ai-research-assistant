@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from research_assistant.query_expansion import QueryExpander
@@ -16,6 +17,8 @@ from .storage import IndexStore, IndexStoreProtocol
 from .web_search import WebSearchProvider
 from .source_verification import SourceVerifier
 
+
+logger = logging.getLogger(__name__)
 
 class ResearchPipeline:
     def __init__(
@@ -47,6 +50,7 @@ class ResearchPipeline:
         self.query_expander = query_expander
         self.source_verifier = source_verifier
     def index(self, directory: str | Path) -> int:
+        logger.info("Indexing directory: %s", directory)
         chunks = load_directory(directory)
         if not chunks:
             raise ValueError(f"No .md or .txt documents found in {directory}")
@@ -56,9 +60,11 @@ class ResearchPipeline:
         if self.vector_store is None:
             self.store.save(chunks, self.retriever.embeddings)
 
+        logger.info("Indexed %d chunks from %s", len(chunks), directory)
         return len(chunks)
 
     def index_url(self, url: str) -> int:
+        logger.info("Indexing URL: %s", url)
         chunks = load_url(url)
         if not chunks:
             raise ValueError(f"No content found at {url}")
@@ -68,6 +74,7 @@ class ResearchPipeline:
         if self.vector_store is None:
             self.store.save(chunks, self.retriever.embeddings)
 
+        logger.info("Indexed %d chunks from URL: %s", len(chunks), url)
         return len(chunks)
 
     def crawl_url(
@@ -105,14 +112,17 @@ class ResearchPipeline:
         )
 
     def load_index(self) -> int:
+        logger.info("Loading index")
         if self.vector_store is not None:
             chunks = self.vector_store.load_chunks()
             self.bm25_retriever.fit(chunks)
+            logger.info("Loaded %d chunks from vector store", len(chunks))
             return len(chunks)
 
         chunks, embeddings = self.store.load()
         self.retriever.load(chunks, embeddings)
         self.bm25_retriever.fit(chunks)
+        logger.info("Loaded %d chunks from local index", len(chunks))
         return len(chunks)
 
     def close(self) -> None:
@@ -183,6 +193,14 @@ class ResearchPipeline:
         if verify_sources and self.source_verifier is None:
             raise ValueError("source verifier is not configured")
 
+        logger.info(
+            "Building research context: top_k=%d, web_search=%s, "
+            "query_expansion=%s, verify_sources=%s",
+            top_k,
+            use_web_search,
+            use_query_expansion,
+            verify_sources,
+        )
         queries = [question]
 
         if use_query_expansion:
@@ -190,6 +208,7 @@ class ResearchPipeline:
                 self.query_expander.expand(question)
             )
 
+        logger.info("Retrieving with %d query variant(s)", len(queries))
         dense_results = [
             self.retriever.search(
                 query,
@@ -213,12 +232,14 @@ class ResearchPipeline:
             top_k=top_k,
         )
 
+        logger.info("Retrieved %d fused results", len(results))
         if self.reranker:
             results = self.reranker.rerank(
                 question,
                 results,
                 top_k=min(top_k, len(results)),
             )
+            logger.info("Reranked results: %d", len(results))
 
         evidence_parts = [
             f"[{i}] Source: {r.chunk.source}\n{r.chunk.text}"
@@ -236,13 +257,17 @@ class ResearchPipeline:
                 top_k=top_k,
             )
 
+            logger.info("Web search returned %d results", len(web_results))
             if verify_sources:
                 web_results = [
                     result
                     for result in web_results
                     if self.source_verifier.verify(result).is_valid
                 ]
-
+                logger.info(
+                    "Source verification kept %d web results",
+                    len(web_results),
+                )
             start_index = len(evidence_parts) + 1
 
             evidence_parts.extend(

@@ -14,10 +14,12 @@ from research_assistant.evaluation import (
 from .web_search import TavilySearchProvider
 from .query_expansion import LLMQueryExpander
 from .source_verification import HttpSourceVerifier
+from .logging_config import configure_logging
 
 
 def main() -> None:
     load_dotenv()
+    configure_logging()
 
     parser = argparse.ArgumentParser(
         description="Citation-aware AI research assistant"
