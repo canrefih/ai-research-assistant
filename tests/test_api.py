@@ -70,3 +70,24 @@ def test_ask_returns_bad_request_for_pipeline_value_error():
     assert response.json() == {
         "detail": "Index is not available",
     }
+
+
+def test_ask_returns_bad_request_for_unfitted_retriever():
+    class FakePipeline:
+        def ask(self, question):
+            raise RuntimeError("Retriever is not fitted")
+
+    app.dependency_overrides[get_pipeline] = lambda: FakePipeline()
+
+    try:
+        response = client.post(
+            "/ask",
+            json={"question": "What is Python?"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Retriever is not fitted",
+    }

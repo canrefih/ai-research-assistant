@@ -351,7 +351,7 @@ These limitations are intentional extension points.
 - [x] CI with automated tests
 - [x] Structured logging
 - [x] Typed configuration object
-- [ ] Optional FastAPI service
+- [x] Optional FastAPI service
 - [ ] Web UI
 
 ## Development

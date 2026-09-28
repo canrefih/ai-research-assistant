@@ -31,7 +31,7 @@ def ask(
 ) -> dict:
     try:
         report = pipeline.ask(request.question)
-    except ValueError as exc:
+    except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return {
