@@ -29,8 +29,9 @@ def test_ask():
         ]
 
     class FakePipeline:
-        def ask(self, question):
+        def ask(self, question, use_web_search=False):
             assert question == "What is Python?"
+            assert use_web_search is False
             return FakeReport()
 
     app.dependency_overrides[get_pipeline] = lambda: FakePipeline()
@@ -56,6 +57,37 @@ def test_ask():
     }
 
 
+def test_ask_passes_web_search_option():
+    class FakeReport:
+        answer = "Web-enabled answer."
+        sources = []
+
+    class FakePipeline:
+        def ask(self, question, use_web_search=False):
+            assert question == "What is Python?"
+            assert use_web_search is True
+            return FakeReport()
+
+    app.dependency_overrides[get_pipeline] = lambda: FakePipeline()
+
+    try:
+        response = client.post(
+            "/ask",
+            json={
+                "question": "What is Python?",
+                "use_web_search": True,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "answer": "Web-enabled answer.",
+        "sources": [],
+    }
+
+
 def test_ask_rejects_empty_question():
     response = client.post(
         "/ask",
@@ -67,7 +99,7 @@ def test_ask_rejects_empty_question():
 
 def test_ask_returns_bad_request_for_pipeline_value_error():
     class FakePipeline:
-        def ask(self, question):
+        def ask(self, question, use_web_search=False):
             raise ValueError("Index is not available")
 
     app.dependency_overrides[get_pipeline] = lambda: FakePipeline()
@@ -88,7 +120,7 @@ def test_ask_returns_bad_request_for_pipeline_value_error():
 
 def test_ask_returns_bad_request_for_unfitted_retriever():
     class FakePipeline:
-        def ask(self, question):
+        def ask(self, question, use_web_search=False):
             raise RuntimeError("Retriever is not fitted")
 
     app.dependency_overrides[get_pipeline] = lambda: FakePipeline()

@@ -22,6 +22,7 @@ def health() -> dict[str, str]:
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=1)
+    use_web_search: bool = False
 
 
 class SourceResponse(BaseModel):
@@ -41,7 +42,10 @@ def ask(
     pipeline: ResearchPipeline = Depends(get_pipeline),
 ) -> AskResponse:
     try:
-        report = pipeline.ask(request.question)
+        report = pipeline.ask(
+            request.question,
+            use_web_search=request.use_web_search,
+        )
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
