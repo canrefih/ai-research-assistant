@@ -345,10 +345,10 @@ These limitations are intentional extension points.
 - [x] Golden-question dataset
 - [x] Recall@K, MRR and NDCG
 - [x] Answer faithfulness checks
-- [ ] Retrieval-vs-generation error analysis
+- [x] Retrieval-vs-generation error analysis
 
 ### Developer experience
-- [ ] CI with linting and tests
+- [x] CI with automated tests
 - [ ] Structured logging
 - [ ] Typed configuration object
 - [ ] Optional FastAPI service
