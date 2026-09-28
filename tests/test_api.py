@@ -15,12 +15,14 @@ def test_health():
 
 
 def test_get_pipeline_returns_research_pipeline():
+    get_pipeline.cache_clear()
     pipeline = get_pipeline()
 
     assert isinstance(pipeline, ResearchPipeline)
 
 
 def test_get_pipeline_returns_cached_instance():
+    get_pipeline.cache_clear()
     first = get_pipeline()
     second = get_pipeline()
 

@@ -740,6 +740,23 @@ def test_benchmark_with_faithfulness(capsys, monkeypatch):
 
 
 def test_benchmark_answer_quality(capsys, monkeypatch):
+    class FakeLLM:
+        def answer(self, question, context):
+            return "fake answer"
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            self.llm = FakeLLM()
+
+        def load_index(self):
+            return 1
+
+        def _build_research_context(self, question, top_k=5):
+            return "", []
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        FakePipeline,
+    )
     monkeypatch.setattr(
         sys,
         "argv",
@@ -759,6 +776,19 @@ def test_benchmark_answer_quality(capsys, monkeypatch):
 
 
 def test_benchmark_error_analysis(capsys, monkeypatch):
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            pass
+
+        def load_index(self):
+            return 1
+
+        def _build_research_context(self, question, top_k=5):
+            return "", []
+    monkeypatch.setattr(
+        "research_assistant.cli.ResearchPipeline",
+        FakePipeline,
+    )
     monkeypatch.setattr(
         sys,
         "argv",
