@@ -1,5 +1,9 @@
 import os
+
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class LLMClient:
     def __init__(self, base_url: str | None = None, api_key: str | None = None, model: str | None = None):
@@ -21,7 +25,8 @@ class LLMClient:
                     "role": "system",
                     "content": (
                         "You are a research assistant. Answer only from the supplied evidence. "
-                        "Cite sources using [1], [2], etc. If the evidence is insufficient, say so."
+                        "Cite sources using [1], [2], etc. Do not reproduce source names, file paths, "
+                        "or the evidence block in your answer. If the evidence is insufficient, say so."
                     ),
                 },
                 {"role": "user", "content": f"Question: {question}\n\nEvidence:\n{evidence}"},

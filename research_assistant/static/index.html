@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Research Assistant</title>
+	<style>
+    :root {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #1f2937;
+        background: #f3f4f6;
+    }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+    }
+
+    main {
+        width: min(900px, calc(100% - 32px));
+        margin: 40px auto;
+    }
+
+    h1 {
+        margin-bottom: 32px;
+    }
+
+    form,
+    section {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+    }
+
+    form {
+        display: grid;
+        gap: 12px;
+    }
+
+    textarea {
+        min-height: 120px;
+        resize: vertical;
+    }
+
+    input,
+    textarea,
+    button {
+        font: inherit;
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        box-sizing: border-box;
+    }
+
+    button {
+        cursor: pointer;
+        background: #111827;
+        color: #ffffff;
+        border-color: #111827;
+    }
+
+    button:hover {
+        background: #374151;
+    }
+
+    #status {
+        min-height: 24px;
+    }
+
+    #answer {
+        white-space: pre-wrap;
+        line-height: 1.6;
+    }
+
+    #sources {
+        padding-left: 20px;
+        line-height: 1.8;
+    }
+
+    a {
+        color: #2563eb;
+    }
+</style>
+</head>
+<body>
+    <main>
+        <h1>AI Research Assistant</h1>
+
+        <form id="ask-form">
+            <label for="question">Question</label>
+            <textarea id="question" required></textarea>
+
+            <label>
+                <input type="checkbox" id="use-web-search">
+                Use web search
+            </label>
+
+            <label for="top-k">Top K</label>
+            <input id="top-k" type="number" min="1" value="5">
+
+            <button type="submit">Ask</button>
+        </form>
+
+        <p id="status"></p>
+
+        <section>
+            <h2>Answer</h2>
+            <div id="answer"></div>
+        </section>
+
+        <section>
+            <h2>Sources</h2>
+            <ul id="sources"></ul>
+        </section>
+    </main>
+
+    <script>
+        const form = document.getElementById("ask-form");
+        const question = document.getElementById("question");
+        const useWebSearch = document.getElementById("use-web-search");
+        const topK = document.getElementById("top-k");
+        const status = document.getElementById("status");
+        const answer = document.getElementById("answer");
+        const sources = document.getElementById("sources");
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            status.textContent = "Researching...";
+            answer.textContent = "";
+            sources.innerHTML = "";
+
+            try {
+                const response = await fetch("/ask", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        question: question.value,
+                        use_web_search: useWebSearch.checked,
+                        top_k: Number(topK.value),
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || "Request failed.");
+                }
+
+                answer.textContent = data.answer;
+
+                for (const source of data.sources) {
+                    const item = document.createElement("li");
+                    const label = source.title || source.source;
+
+                    if (source.url) {
+                        const link = document.createElement("a");
+                        link.href = source.url;
+                        link.textContent = label;
+                        link.target = "_blank";
+                        link.rel = "noopener noreferrer";
+                        item.appendChild(link);
+                    } else {
+                        item.textContent = label;
+                    }
+
+                    sources.appendChild(item);
+                }
+
+                status.textContent = "Done.";
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        });
+    </script>
+</body>
+</html>

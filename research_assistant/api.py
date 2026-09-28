@@ -1,6 +1,11 @@
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from .pipeline import ResearchPipeline
+from .web_search import TavilySearchProvider
 from functools import lru_cache
 
 
@@ -11,9 +16,31 @@ app = FastAPI(
 
 
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    return FileResponse(
+        Path(__file__).parent / "static" / "index.html",
+    )
+
+
+
 @lru_cache
 def get_pipeline() -> ResearchPipeline:
-    return ResearchPipeline()
+    pipeline = ResearchPipeline(
+        web_search_provider=TavilySearchProvider(),
+    )
+    pipeline.load_index()
+    return pipeline
 
 
 
@@ -45,7 +72,7 @@ def ask(
     pipeline: ResearchPipeline = Depends(get_pipeline),
 ) -> AskResponse:
     try:
-        report = pipeline.ask(
+        report = pipeline.research(
             request.question,
             top_k=request.top_k,
             use_web_search=request.use_web_search,
