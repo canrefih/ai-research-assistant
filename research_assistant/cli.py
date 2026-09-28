@@ -74,9 +74,9 @@ def main() -> None:
         help="also evaluate answer faithfulness against retrieved evidence",
     )
     benchmark.add_argument(
-		"--answer-quality",
-		action="store_true",
-	)
+        "--answer-quality",
+        action="store_true",
+    )
     benchmark.add_argument(
         "--error-analysis",
         action="store_true",
