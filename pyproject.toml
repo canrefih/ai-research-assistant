@@ -19,7 +19,8 @@ dependencies = [
   "scikit-learn>=1.5",
   "qdrant-client>=1.16",
   "pypdf>=6.0",
-  "beautifulsoup4>=4.12"
+  "beautifulsoup4>=4.12",
+  "fastapi>=0.115",
 ]
 
 [project.optional-dependencies]
