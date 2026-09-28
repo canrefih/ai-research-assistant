@@ -9,6 +9,7 @@ from research_assistant.evaluation import (
     benchmark_faithfulness,
     load_evaluation_dataset,
     benchmark_answer_quality,
+    benchmark_retrieval_errors,
 )
 from .web_search import TavilySearchProvider
 from .query_expansion import LLMQueryExpander
@@ -76,6 +77,10 @@ def main() -> None:
 		"--answer-quality",
 		action="store_true",
 	)
+    benchmark.add_argument(
+        "--error-analysis",
+        action="store_true",
+    )
 
     ask = sub.add_parser("ask", help="Ask a question against an existing index")
     ask.add_argument("question")
@@ -221,6 +226,25 @@ def main() -> None:
                     "Answer Overlap Score: "
                     f"{answer_quality_metrics.answer_overlap_score:.4f}"
                 )
+
+            if args.error_analysis:
+                cases = load_evaluation_dataset(args.dataset)
+
+                errors = benchmark_retrieval_errors(
+                    pipeline,
+                    cases,
+                )
+
+                print(f"Retrieval Errors: {len(errors)}")
+
+                for error in errors:
+                    print(f"- Question: {error.question}")
+                    print(
+                        f"  Expected: {', '.join(error.expected_sources)}"
+                    )
+                    print(
+                        f"  Retrieved: {', '.join(error.retrieved_sources)}"
+                    )
 
         elif args.command == "ask":
             pipeline_kwargs = {

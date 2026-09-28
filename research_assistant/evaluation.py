@@ -30,6 +30,66 @@ class AnswerQualityMetrics:
     answer_overlap_score: float
 
 
+@dataclass(frozen=True)
+class EvaluationError:
+    question: str
+    expected_sources: list[str]
+    retrieved_sources: list[str]
+
+
+def analyze_retrieval_errors(
+    cases: list[EvaluationCase],
+    retrieved_sources: list[list[str]],
+) -> list[EvaluationError]:
+    if len(cases) != len(retrieved_sources):
+        raise ValueError(
+            "cases and retrieved_sources must have the same length"
+        )
+
+    errors = []
+
+    for case, retrieved in zip(
+        cases,
+        retrieved_sources,
+    ):
+        if not any(
+            source in case.relevant_sources
+            for source in retrieved
+        ):
+            errors.append(
+                EvaluationError(
+                    question=case.question,
+                    expected_sources=case.relevant_sources,
+                    retrieved_sources=retrieved,
+                )
+            )
+
+    return errors
+
+
+def benchmark_retrieval_errors(
+    pipeline,
+    cases: list[EvaluationCase],
+    top_k: int = 5,
+) -> list[EvaluationError]:
+    retrieved_sources = []
+
+    for case in cases:
+        _, sources = pipeline._build_research_context(
+            case.question,
+            top_k=top_k,
+        )
+
+        retrieved_sources.append(
+            [source.source for source in sources]
+        )
+
+    return analyze_retrieval_errors(
+        cases,
+        retrieved_sources,
+    )
+
+
 def load_evaluation_dataset(
 	path: str | Path,
 ) -> list[EvaluationCase]:

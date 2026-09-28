@@ -756,3 +756,22 @@ def test_benchmark_answer_quality(capsys, monkeypatch):
     captured = capsys.readouterr()
 
     assert "Answer Overlap Score:" in captured.out
+
+
+def test_benchmark_error_analysis(capsys, monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "research-assistant",
+            "benchmark",
+            "tests/data/golden_dataset.jsonl",
+            "--error-analysis",
+        ],
+    )
+
+    main()
+
+    captured = capsys.readouterr()
+
+    assert "Retrieval Errors:" in captured.out

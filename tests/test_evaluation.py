@@ -14,7 +14,9 @@ from research_assistant.evaluation import (
 	_content_words,
 	answer_overlap_score,
 	evaluate_answer_quality,
-	benchmark_answer_quality
+	benchmark_answer_quality,
+	analyze_retrieval_errors,
+	benchmark_retrieval_errors,
 	)
 from pathlib import Path
 import pytest
@@ -495,3 +497,107 @@ def test_benchmark_answer_quality():
     )
 
     assert metrics.answer_overlap_score == 1.0
+
+
+def test_analyze_retrieval_errors_returns_failed_cases():
+    cases = [
+        EvaluationCase(
+            question="What is RAG?",
+            relevant_sources=["data/sample/rag.md"],
+            reference_answer="RAG retrieves documents.",
+        ),
+        EvaluationCase(
+            question="What is BM25?",
+            relevant_sources=["data/sample/bm25.md"],
+            reference_answer="BM25 ranks documents.",
+        ),
+    ]
+
+    errors = analyze_retrieval_errors(
+        cases,
+        [
+            ["data/sample/rag.md"],
+            ["data/sample/other.md"],
+        ],
+    )
+
+    assert len(errors) == 1
+    assert errors[0].question == "What is BM25?"
+    assert errors[0].expected_sources == ["data/sample/bm25.md"]
+    assert errors[0].retrieved_sources == ["data/sample/other.md"]
+
+
+def test_analyze_retrieval_errors_ignores_successful_cases():
+    cases = [
+        EvaluationCase(
+            question="What is RAG?",
+            relevant_sources=["data/sample/rag.md"],
+            reference_answer="RAG retrieves documents.",
+        ),
+    ]
+
+    errors = analyze_retrieval_errors(
+        cases,
+        [["data/sample/rag.md"]],
+    )
+
+    assert errors == []
+
+
+def test_analyze_retrieval_errors_rejects_length_mismatch():
+    cases = [
+        EvaluationCase(
+            question="What is RAG?",
+            relevant_sources=["data/sample/rag.md"],
+            reference_answer="RAG retrieves documents.",
+        ),
+    ]
+
+    with pytest.raises(ValueError):
+        analyze_retrieval_errors(
+            cases,
+            [],
+        )
+
+
+def test_benchmark_retrieval_errors():
+    class FakePipeline:
+        def _build_research_context(
+            self,
+            question,
+            top_k,
+        ):
+            if "RAG" in question:
+                return "", [
+                    ResearchSource(
+                        source="data/sample/rag.md",
+                    ),
+                ]
+
+            return "", [
+                ResearchSource(
+                    source="data/sample/other.md",
+                ),
+            ]
+
+    cases = [
+        EvaluationCase(
+            question="What is RAG?",
+            relevant_sources=["data/sample/rag.md"],
+            reference_answer="RAG retrieves documents.",
+        ),
+        EvaluationCase(
+            question="What is BM25?",
+            relevant_sources=["data/sample/bm25.md"],
+            reference_answer="BM25 ranks documents.",
+        ),
+    ]
+
+    errors = benchmark_retrieval_errors(
+        FakePipeline(),
+        cases,
+        top_k=1,
+    )
+
+    assert len(errors) == 1
+    assert errors[0].question == "What is BM25?"
