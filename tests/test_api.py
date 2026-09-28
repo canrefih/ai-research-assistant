@@ -43,8 +43,9 @@ def test_ask():
         ]
 
     class FakePipeline:
-        def ask(self, question, use_web_search=False):
+        def ask(self, question, top_k=5, use_web_search=False):
             assert question == "What is Python?"
+            assert top_k == 5
             assert use_web_search is False
             return FakeReport()
 
@@ -77,8 +78,9 @@ def test_ask_passes_web_search_option():
         sources = []
 
     class FakePipeline:
-        def ask(self, question, use_web_search=False):
+        def ask(self, question, top_k=5, use_web_search=False):
             assert question == "What is Python?"
+            assert top_k == 5
             assert use_web_search is True
             return FakeReport()
 
@@ -113,7 +115,7 @@ def test_ask_rejects_empty_question():
 
 def test_ask_returns_bad_request_for_pipeline_value_error():
     class FakePipeline:
-        def ask(self, question, use_web_search=False):
+        def ask(self, question, top_k=5, use_web_search=False):
             raise ValueError("Index is not available")
 
     app.dependency_overrides[get_pipeline] = lambda: FakePipeline()
@@ -134,7 +136,7 @@ def test_ask_returns_bad_request_for_pipeline_value_error():
 
 def test_ask_returns_bad_request_for_unfitted_retriever():
     class FakePipeline:
-        def ask(self, question, use_web_search=False):
+        def ask(self, question, top_k=5, use_web_search=False):
             raise RuntimeError("Retriever is not fitted")
 
     app.dependency_overrides[get_pipeline] = lambda: FakePipeline()
